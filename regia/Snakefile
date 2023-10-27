@@ -18,9 +18,14 @@ DJUG31_1 = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jmicrocarpa/Jm
 DJUG31_1_BWA_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jmicrocarpa/Jm3101_v1.0.fna.bwt',
 DJUG31_1_SAMTOOLS_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jmicrocarpa/Jm3101_v1.0.fna.fai'
 
+EDTA = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/EDTA'
 
 rule all:
   input:
+    "Jregia_founders_geno_r2.geno.ld",
+    "output/Jregia_founders_gemma.assoc.txt",
+    "JregiaV2.fa.mod.EDTA.TEanno.gff3",
+    "JRE_v3.3.fasta.mod.EDTA.TEanno.gff3",
 #    expand("alignment_files/{genome}/{sample}.cram.crai", genome = ['Chandler', 'Serr', 'Jm3101_v1.0', 'Jcali_primary', 'Jcali_alt'], sample = FOUNDERS),
 #    expand("results/pixy/{comparison}_dxy.txt", comparison = ['HH_vs_hh', 'HH_vs_Hh', 'Hh_vs_hh']),
 #    expand("results/pixy/{comparison}_pi.txt", comparison = ['hh_vs_hh']),
@@ -34,6 +39,8 @@ rule all:
 #    "calls/Jregia_founders_allsites_filtered.vcf.gz",
 #    expand("chr11_31.8-32Mb_bams/{sample}.bam.bai", sample=FOUNDERS),
 #    expand("results/coverage_chr11_31.8-32Mb/{sample}.txt.gz", sample = FOUNDERS),
+    "Jregia_founders.bed",
+    "output/Jregia_founders.cXX.txt",
 #    "results/plink/Jregia_founders.assoc.fisher",
 #    "calls/Jregia_founders_variant_filtered.vcf.gz",
 #    "calls/Jregia_founders_invariant_filtered.vcf.gz",
@@ -550,24 +557,51 @@ rule tabix_allsites_vcf:
     "calls/Jregia_founders_allsites_filtered.vcf.gz"
   output:
     "calls/Jregia_founders_allsites_filtered.vcf.gz.tbi"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
   shell:
     "tabix {input}"
 
 ############ RUN GWAS ##################
 rule vcf_to_plink:
   input:
-    "calls/Jregia_founders_variant.filtered.vcf.gz",
+    "calls/Jregia_founders_variant_filtered.vcf.gz",
   output:
     bed="Jregia_founders.bed",
     bim="Jregia_founders.bim",
     fam="Jregia_founders.fam"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/plink_1.90.yaml"
   shell:
     "plink --vcf {input} --allow-extra-chr --out Jregia_founders"
 
 
-
-
 ## *** at this stage manually edit the .fam file to include phenotypes ***
+
+rule gemma_relatedness_matrix:
+  input:
+    bed="Jregia_founders.bed",
+    bim="Jregia_founders.bim",
+    fam="Jregia_founders.fam" #AFTER MANUAL EDIT
+  output:
+    "output/Jregia_founders.cXX.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/gemma.yaml"
+  shell:
+    "gemma -bfile Jregia_founders -gk 1 -o Jregia_founders"
+
+rule gemma_lmm:
+  input:
+    bed="Jregia_founders.bed",
+    bim="Jregia_founders.bim",
+    fam="Jregia_founders.fam", #AFTER MANUAL EDIT
+    mat="output/Jregia_founders.cXX.txt"
+  output:
+    "output/Jregia_founders_gemma.assoc.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/gemma.yaml"
+  shell:
+    "gemma -bfile Jregia_founders -k {input.mat} -lmm 1 -miss 0.2 -maf 0.2 -o Jregia_founders_gemma"
 
 rule plink_assoc:
   input:
@@ -676,4 +710,57 @@ rule pixy_TPPD_dxy:
         --n_cores {threads}
     """
     
+rule EDTA_Chandler:
+  input:
+    CHANDLER,
+    cds="/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2_CDS.fasta" # CDS is optional
+  output:
+    "JregiaV2.fa.mod.EDTA.TEanno.gff3"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/EDTA.yml"
+  threads:
+    32
+  resources:
+    runtime=24*60,
+    mem_mb=50000
+  shell:
+    """
+    perl /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/EDTA/EDTA.pl \
+        --genome /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2.fa \
+        --anno 1 \
+        --threads {threads} \
+        --cds /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2_CDS.fasta \
+        --u 1.5e-9
+    """
 
+
+rule EDTA_BNU:
+  input:
+    '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/BNU/JRE_v3.3.fasta',
+  output:
+    "JRE_v3.3.fasta.mod.EDTA.TEanno.gff3"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/EDTA.yml"
+  threads:
+    32
+  resources:
+    runtime=24*60,
+    mem_mb=50000
+  shell:
+    """
+    perl /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/EDTA/EDTA.pl \
+        --genome /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/BNU/JRE_v3.3.fasta \
+        --anno 1 \
+        --threads {threads} \
+        --u 1.5e-9
+    """
+
+rule genoLD:
+  input:
+    "calls/Jregia_founders_allsites_filtered.vcf.gz",
+  output:
+    "Jregia_founders_geno_r2.geno.ld"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
+  shell:
+    "vcftools --gzvcf {input} --chr NC_049911.1 --from-bp 31860000 --to-bp 31890000 --geno-r2 --ld-window-bp-min 50 --out Jregia_founders_geno_r2"
