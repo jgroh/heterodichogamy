@@ -1,0 +1,2 @@
+Run	BioProject	BioSample	Species	Library
+SRR9313651	PRJNA356989	SAMN12056438	stenoptera	Pte-ste

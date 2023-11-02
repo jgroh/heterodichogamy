@@ -10,7 +10,7 @@ JMANBNU_CDS = "QRY_vs_hJman_alignments/hJmanBNU_cds.fa"
 JCALIALT_GFF = "/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jcali_alt.gff"
 JCALIALT_CDS = "QRY_vs_hJcaliAlt_alignments/hJcaliAlt_cds.fa"
 
-CILLPAW_GFF = "/home/jgroh/heterodichogamy/Carya_genome_assemblies/Pawnee_v1.gff"
+CILLPAW_GFF = '/home/jgroh/heterodichogamy/Carya_genome_assemblies/Pawnee_anno_liftoff_from_Jregia.gff',
 CILLPAW_CDS = "QRY_vs_CillPaw_alignments/Pawnee_cds.fa"
 
 JUGDIR="/home/jgroh/heterodichogamy/Juglans_genome_assemblies/"
@@ -83,6 +83,7 @@ rule all:
     expand("QRY_vs_hJmanBNU_alignments/{gnom}/alignment.maf", gnom=vs_hJmanBNUGnoms.keys()),
     expand("QRY_vs_HJmic_alignments/{gnom}/alignment.maf", gnom=vs_HJmicGnoms.keys()),
     expand("QRY_vs_hJregCha_alignments/{gnom}/alignment.maf", gnom=vs_hJregGnoms.keys()),
+    expand("QRY_vs_hJregCha_alignments/{gnom}/alignment.maf", gnom=vs_hJregGnoms.keys()),
     expand("QRY_vs_HJmic_alignments/{qryGnom}/Dxy_NC_054600.1.txt", qryGnom=vs_HJmicGnoms.keys()),
     expand("QRY_vs_hJregCha_alignments/{qryGnom}/Dxy_NC_049911.1.txt", qryGnom=vs_hJregGnoms.keys()),
     expand("QRY_vs_hJcaliAlt_alignments/{qryGnom}/Dxy_JAKSXL010000006.1.txt", qryGnom=vs_hJcaliAltGnoms.keys()), 
@@ -106,6 +107,26 @@ rule liftoff:
         -u "/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jreg_to_JcaliAlt_unmapped.txt" \
         {input.target} {input.ref}
     """
+
+# ============= Liftoff Chandler annotation to Pawnee ==============
+rule liftoff_2_pawnee:
+  input:
+    gff='/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/GCF_001411555.2_Walnut_2.0_genomic.gff',
+    ref='/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/GCF_001411555.2_Walnut_2.0_genomic.fna', # should contain all unplaced scaffolds, any sequence present in gff
+    target='/home/jgroh/heterodichogamy/Carya_genome_assemblies/Pawnee_v1.fna'
+  output:
+    '/home/jgroh/heterodichogamy/Carya_genome_assemblies/Pawnee_anno_liftoff_from_Jregia.gff'
+  conda:
+    '/home/jgroh/heterodichogamy/conda_envs/liftoff.yaml'
+  shell:
+    """
+    liftoff -g {input.gff} \
+        -dir "/home/jgroh/heterodichogamy/Carya_genome_assemblies/" \
+        -o {output} \
+        -u "/home/jgroh/heterodichogamy/Carya_genome_assemblies/Jreg_to_Pawnee_unmapped.txt" \
+        {input.target} {input.ref}
+    """
+
 
 # ======== ANCHORWAVE Setup =====
 
@@ -158,7 +179,7 @@ rule gff_to_fasta_hJCali:
 rule gff_to_fasta_CillPaw:
   input:
     fa=GNOMS['CillPaw'],
-    gff='/home/jgroh/heterodichogamy/Carya_genome_assemblies/Pawnee_v1.gff'
+    gff=CILLPAW_GFF
   output: 
     CILLPAW_CDS
   conda:
@@ -471,26 +492,6 @@ rule Dxy_Chandler:
     windowSize=500
   output:
     "QRY_vs_hJregCha_alignments/{qryGnom}/Dxy_{chrom}.txt"
-  conda:
-    "/home/jgroh/heterodichogamy/conda_envs/R4.yaml"
-  resources:
-    mem_mb=30000
-  threads:
-    16
-  shell:
-    "Rscript --vanilla Dxy.R {input.maf} {params.refGnom} {params.qryGnom} {params.chrom} {params.windowSize} > {output}"
-
-
-rule Dxy_Jm3101:
-  input:
-    maf="QRY_vs_HJmic_alignments/{qryGnom}/alignment.maf",
-  params:
-    refGnom="HJmic",
-    qryGnom="{qryGnom}",
-    chrom="NC_054600.1",
-    windowSize=500
-  output:
-    "QRY_vs_HJmic_alignments/{qryGnom}/Dxy_{chrom}.txt"
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/R4.yaml"
   resources:
