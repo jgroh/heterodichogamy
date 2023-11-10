@@ -86,29 +86,3 @@ Jre-B7	SRR18664002	Xizang
 Jre-GX10	SRR18664001	Xizang
 Jre-Y23	SRR18664000	Yunnan
 Jre-Y31	SRR18663999	Yunnan
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		

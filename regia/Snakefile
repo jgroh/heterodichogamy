@@ -4,12 +4,17 @@ SRA_SAMPLES = sra['run'].tolist()
 
 FOUNDERS = ['JG0012','JG0072','JG0058','JG0176','JG0051','JG0071','JG0041','JG0031','JG0032','JG0014','JG0026','JG0001','JG0074','JG0182','JG0002','JG0061','JG0065','JG0166','JG0018','JG0171','JG0175','JG0173','JG0169','JG0172', 'Soleze', 'Chandler']
 
+ALL_SAMPLES = ['sra/' + i for i in SRA_SAMPLES] + FOUNDERS
 
 CHROMS = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16']
 
 CHANDLER = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2.fa'
 CHANDLER_BWA_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2.fa.bwt'
 CHANDLER_SAMTOOLS_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2.fa.fai'
+
+BNU = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/BNU/JRE_v3.3.fasta'
+BNU_BWA_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/BNU/JRE_v3.3.fasta.bwt'
+BNU_SAMTOOLS_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/BNU/JRE_v3.3.fasta.fai'
 
 SERR = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Serr/GCA_004785585.1_JrSerr_v1.0_genomic.fna'
 SERR_BWA_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Serr/GCA_004785585.1_JrSerr_v1.0_genomic.fna.bwt'
@@ -28,7 +33,9 @@ EDTA = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/ED
 
 rule all:
   input:
-    "calls/Jregia_SRA_variant_filtered.vcf.gz",
+    expand("alignment_files/BNU/{sample}.cram.crai", sample = ALL_SAMPLES),
+  #  "calls/Jregia_ALL_variant_filtered.vcf.gz",
+    expand("results/coverage_Chandler/sra/{sample}.txt.gz", sample = SRA_SAMPLES),
     "Jregia_founders_geno_r2.geno.ld",
     "output/Jregia_founders_gemma.assoc.txt",
     "JregiaV2.fa.mod.EDTA.TEanno.gff3",
@@ -98,6 +105,18 @@ rule bwa_index_Serr:
     SERR,
   output:
     SERR_BWA_INDEX
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    """
+    bwa index {input}
+    """
+
+rule bwa_index_BNU:
+  input:
+    BNU
+  output:
+    BNU_BWA_INDEX
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
   shell:
@@ -181,6 +200,58 @@ rule bwa_map_to_Chandler_SRA:
         samtools sort -O bam -l 0 -T tmp_sorted_reads/Chandler/sra/{wildcards.sra_sample} - | \
         samtools view -T {input.fa} -C -o {output} -
     rm -r tmp_sorted_reads/Chandler/sra/{wildcards.sra_sample}
+    """
+
+rule bwa_map_to_BNU_founders:
+  input:
+    fa=BNU,
+    index=BNU_BWA_INDEX,
+    r1="raw_reads/{sample}_R1.fastq.gz",
+    r2="raw_reads/{sample}_R2.fastq.gz"
+  output:
+    "alignment_files/BNU/{sample}.cram"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  resources:
+    runtime = lambda wildcards, attempt: attempt * 24 * 60,
+    mem_mb = lambda wildcards, attempt: attempt * 30000
+  threads:
+    24
+  shell:
+    """
+    mkdir -p tmp_sorted_reads/BNU/{wildcards.sample} &&
+    bwa mem -t {threads} -M \
+        -R '@RG\\tID:{wildcards.sample}\\tLB:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:illumina' \
+        {input.fa} {input.r1} {input.r2} | \
+        samtools sort -O bam -l 0 -T tmp_sorted_reads/BNU/{wildcards.sample} - | \
+        samtools view -T {input.fa} -C -o {output} -
+    rm -r tmp_sorted_reads/BNU/{wildcards.sample}
+    """
+
+rule bwa_map_to_BNU_SRA:
+  input:
+    fa=BNU,
+    index=BNU_BWA_INDEX,
+    r1="sra_fasta/{sra_sample}_1.fasta.gz",
+    r2="sra_fasta/{sra_sample}_2.fasta.gz"
+  output:
+    "alignment_files/BNU/sra/{sra_sample}.cram"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  resources:
+    runtime = lambda wildcards, attempt: attempt * 24 * 60,
+    mem_mb = lambda wildcards, attempt: attempt * 30000
+  threads:
+    24
+  shell:
+    """
+    mkdir -p tmp_sorted_reads/BNU/sra/{wildcards.sra_sample} &&
+    bwa mem -t {threads} -M \
+        -R '@RG\\tID:{wildcards.sra_sample}\\tLB:{wildcards.sra_sample}\\tSM:{wildcards.sra_sample}\\tPL:illumina' \
+        {input.fa} {input.r1} {input.r2} | \
+        samtools sort -O bam -l 0 -T tmp_sorted_reads/BNU/sra/{wildcards.sra_sample} - | \
+        samtools view -T {input.fa} -C -o {output} -
+    rm -r tmp_sorted_reads/BNU/sra/{wildcards.sra_sample}
     """
 
 rule bwa_map_to_Serr:
@@ -295,6 +366,16 @@ rule samtools_index_crams_Chandler:
   shell:
     "samtools index {input}"
 
+rule samtools_index_crams_BNU:
+  input:
+    "alignment_files/BNU/{sample}.cram"
+  output:
+    "alignment_files/BNU/{sample}.cram.crai"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    "samtools index {input}"
+
 rule samtools_index_crams_Serr:
   input:
     "alignment_files/Serr/{sample}.cram"
@@ -350,6 +431,7 @@ rule samtools_coverage_Chandler: # this rule and analogous rules for other refer
     samtools depth -a {input.cram} -r NC_049911.1:31800000-32000000 | gzip > {output.focal}
     samtools depth -a {input.cram} -r NC_049915.1 | awk '{{ sum += $3 }} END {{ mean = sum / NR; print mean}}' > {output.norm}
     """
+
 
 rule samtools_coverage_Serr:
   input:
@@ -441,17 +523,17 @@ rule bcftools_call_by_chrom_founders: # includes invariant sites
         --annotate "AD,DP,INFO/AD" --max-depth 500 {input.bams} | bcftools call -m -Oz -f GQ,GP -o {output}
     """
 
-rule bcftools_call_by_chrom_SRA: # don't include invariant sites
+rule bcftools_call_by_chrom_ALL: # don't include invariant sites
   input:
     fa=CHANDLER,
-    bams=expand("alignment_files/Chandler/sra/{sample}.cram", sample = SRA_SAMPLES),
-    bai=expand("alignment_files/Chandler/sra/{sample}.cram.crai", sample = SRA_SAMPLES),
+    bams=expand("alignment_files/Chandler/{sample}.cram", sample = ALL_SAMPLES),
+    bai=expand("alignment_files/Chandler/{sample}.cram.crai", sample = ALL_SAMPLES),
     fai=CHANDLER_SAMTOOLS_INDEX
   output:
-    "calls/Jregia_SRA_chr{chr}.vcf.gz"
+    "calls/Jregia_ALL_chr{chr}.vcf.gz"
   resources:
-    runtime = lambda wildcards, attempt: attempt * 24 * 60,
-    mem_mb = lambda wildcards, attempt: attempt * 10000
+    runtime = 48 * 60,
+    mem_mb = 50000
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
   shell:
@@ -459,6 +541,8 @@ rule bcftools_call_by_chrom_SRA: # don't include invariant sites
     bcftools mpileup -Ou -f {input.fa} -r NC_0499{wildcards.chr}.1 \
         --annotate "AD,DP,INFO/AD" --max-depth 200 {input.bams} | bcftools call -m -v -Oz -f GQ,GP -o {output}
     """
+
+
 
 rule bcftools_concat_chr_bams_founders:
   input:
@@ -470,18 +554,18 @@ rule bcftools_concat_chr_bams_founders:
   shell:
     "bcftools concat {input} -o {output}" 
 
-rule bcftools_concat_chr_bams_SRA:
+rule bcftools_concat_chr_bams_ALL:
   input:
-    expand("calls/Jregia_SRA_chr{chr}.vcf.gz", chr=CHROMS)
+    expand("calls/Jregia_ALL_chr{chr}.vcf.gz", chr=CHROMS)
   output:
-    "calls/Jregia_SRA_variant_unfiltered.vcf.gz"
+    "calls/Jregia_ALL_variant_unfiltered.vcf.gz"
   conda:
     '/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml'
   shell:
     "bcftools concat {input} -o {output}" 
 
 
-rule bcftools_subset_variant_sites:
+rule bcftools_subset_variant_sites_founders:
   input:
     "calls/Jregia_founders_allsites_unfiltered.vcf.gz"
   output:
@@ -491,7 +575,7 @@ rule bcftools_subset_variant_sites:
   shell:
     "vcftools --gzvcf {input} --mac 1 --recode --stdout | bgzip -c > {output}" 
 
-rule bcftools_subset_invariant_sites:
+rule bcftools_subset_invariant_sites_founders:
   input:
     "calls/Jregia_founders_allsites_unfiltered.vcf.gz"
   output:
@@ -500,7 +584,9 @@ rule bcftools_subset_invariant_sites:
     "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
   shell:
     "vcftools --gzvcf {input} --max-maf 0 --recode --stdout | bgzip -c > {output}" 
+    
 
+###### Investigate variant properties #####
 rule nvariants_unfiltered:
   input:
     "calls/Jregia_founders_variant_unfiltered.vcf.gz"
@@ -571,7 +657,7 @@ rule vcftools_mean_site_depth:
   shell:
     "vcftools --gzvcf {input} --site-mean-depth --stdout > {output}"
 
-
+##### Filter variants #####
 rule vcftools_filter_variant_sites_founders:
   input:
     "calls/Jregia_founders_variant_unfiltered.vcf.gz"
@@ -592,11 +678,11 @@ rule vcftools_filter_variant_sites_founders:
         --recode --stdout | bgzip -c > {output}
     """
 
-rule vcftools_filter_variant_sites_SRA:
+rule vcftools_filter_variant_sites_ALL:
   input:
-    "calls/Jregia_SRA_variant_unfiltered.vcf.gz"
+    "calls/Jregia_ALL_variant_unfiltered.vcf.gz"
   output:
-    "calls/Jregia_SRA_variant_filtered.vcf.gz"
+    "calls/Jregia_ALL_variant_filtered.vcf.gz"
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
   shell:
@@ -604,7 +690,7 @@ rule vcftools_filter_variant_sites_SRA:
     vcftools --gzvcf {input} \
         --remove-indels \
         --maf 0.02 \
-        --max-missing 0.8 \
+        --max-missing 0.5 \
         --minQ 30 \
         --minGQ 30 \
         --min-meanDP 10 \
@@ -630,6 +716,23 @@ rule vcftools_filter_invariant_sites:
         --max-meanDP 200 \
         --recode --stdout | bgzip -c > {output}
     """
+
+rule subset_to_HJ1_0_TPPD:
+  input:
+    "calls/Jregia_ALL_variant_filtered.vcf.gz"
+  output:
+    "calls/Jregia_ALL_HJ1-0_TPPD_maf0.05_minDP10_minGQ40_noMiss.vcf.gz"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
+  shell:
+    """
+    vcftools --gzvcf {input} \
+        --chr NC_049911.1 \
+        --from-bp 31883277 \
+        --to-bp 31887072 \
+        --recode --stdout | bgzip -c > {output}
+    """
+
 
 rule index_filtered_vcfs:
   input:
@@ -663,6 +766,7 @@ rule concat_vcfs:
   shell:
     "bcftools concat --allow-overlaps {input.variant} {input.invariant} -O z -o {output}"
 
+
 rule tabix_allsites_vcf:
   input:
     "calls/Jregia_founders_allsites_filtered.vcf.gz"
@@ -672,6 +776,9 @@ rule tabix_allsites_vcf:
     "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
   shell:
     "tabix {input}"
+
+
+
 
 ############ RUN GWAS ##################
 rule vcf_to_plink:
@@ -865,6 +972,7 @@ rule EDTA_BNU:
         --threads {threads} \
         --u 1.5e-9
     """
+
 
 rule genoLD:
   input:
