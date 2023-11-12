@@ -79,8 +79,9 @@ vs_CillPawGnoms = {
 
 rule all:
   input:
+    expand("QRY_vs_hJregCha_alignments/{gnom}/HJ1-0_TPPD.txt", gnom = ['HJregBNU', 'hJcaliAlt', 'HJcaliPrimary', 'hJmanBNU', 'HJmanNFU', 'hJnigBNU', 'HJmic']),
     expand("QRY_vs_hJcaliAlt_alignments/{gnom}/alignment.maf", gnom=vs_hJcaliAltGnoms.keys()),
-    expand("QRY_vs_CillPaw_alignments/{gnom}/alignment.maf", gnom=vs_CillPawGnoms.keys()),
+    #expand("QRY_vs_CillPaw_alignments/{gnom}/alignment.maf", gnom=vs_CillPawGnoms.keys()),
     expand("QRY_vs_hJmanBNU_alignments/{gnom}/alignment.maf", gnom=vs_hJmanBNUGnoms.keys()),
     expand("QRY_vs_HJmic_alignments/{gnom}/alignment.maf", gnom=vs_HJmicGnoms.keys()),
     expand("QRY_vs_hJregCha_alignments/{gnom}/alignment.maf", gnom=vs_hJregGnoms.keys()),
@@ -489,18 +490,18 @@ rule Dxy_Chandler:
   params:
     refGnom="hJregCha",
     qryGnom="{qryGnom}",
-    chrom="NC_049911.1",
     windowSize=500
   output:
-    "QRY_vs_hJregCha_alignments/{qryGnom}/Dxy_{chrom}.txt"
+    "QRY_vs_hJregCha_alignments/{qryGnom}/Dxy_NC_049911.1.txt",
+    "QRY_vs_hJregCha_alignments/{qryGnom}/HJ1-0_TPPD.txt"
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/R4.yaml"
   resources:
     mem_mb=30000
   threads:
     16
-  shell:
-    "Rscript --vanilla Dxy.R {input.maf} {params.refGnom} {params.qryGnom} {params.chrom} {params.windowSize} > {output}"
+  shell: # Dxy to stdout, also writes seqDT over HJ1-0 and TPP to path specified within script
+    "Rscript --vanilla Dxy.R {input.maf} {params.refGnom} {params.qryGnom} 'NC_049911.1' {params.windowSize} > {output}"
 
 
 rule Dxy_hJcaliAlt:
