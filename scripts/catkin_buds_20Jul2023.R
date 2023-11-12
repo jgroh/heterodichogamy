@@ -1,10 +1,18 @@
+library(ggplot2)
 library(lme4)
 library(data.table)
+library(visreg)
 
+# -----read heterodichogamy phenotypes -----
 p <- fread("~/workspace/heterodichogamy/data/heterodichogamy_phenotypes.txt")
-d <- fread("~/workspace/heterodichogamy/data/New_Stuke_catkin_buds_20Jul2023.tsv")
-library(ggplot2)
 
+# ----- read catkin bud size -----
+d <- fread("~/workspace/heterodichogamy/data/New_Stuke_catkin_buds_20Jul2023.tsv")
+
+# ----- read leaf dates -----
+l <- fread("~/workspace/heterodichogamy/data/NewStuke_LeafDate_2022.txt")
+
+# ----- format -----
 cat_cols <- paste0("catkin", 1:16)
 wal_cols <- paste0("walnut", 1:6)
 
@@ -16,7 +24,7 @@ mns <- d[, .(catkin_bud_len = mean(catkin_mean, na.rm=T), walnut_diam = mean(wal
 mns <- mns[!is.na(catkin_bud_len)]
 
 
-# correct names for merge
+# correct names for merge with heterodichogamy phenotype data shet
 p[name == 'PI 18256 Manregian', name := 'Manregian']
 p[taxa == '59-124', name := '59-124']
 p[taxa == '59-165', name := '59-165']
@@ -28,6 +36,7 @@ p[taxa == '56-224', name := '56-224']
 p[name == 'Chase D9', name := 'ChaseD9']
 
 
+# merge with heterodichogamy phenotypes
 mns <- merge(mns, p[, .(Variety = name, protog)])
 
 mns <- rbind(mns[Variety == 'Twister' ,.SD[1]], mns[Variety != 'Twister'])
@@ -37,11 +46,33 @@ mns[, protog := ifelse(protog < 0.1, 0, 1)]
 mns[, protog := as.factor(protog)]
 
 
+# which names in leaf data sheet need to be corrected for merge?
+mns[!Variety %in% l$CULT, Variety]
+l[, unique(CULT)]
 
-ggplot(mns, aes(x = protog, y = catkin_bud_len, color = protog)) + 
-  geom_jitter(width = 0.1, size = 2) + 
-  scale_color_manual(values = c("black", "gray")) + 
+# correct names for merge
+l[CULT == 'Sir Bon', CULT := 'SirBon']
+l[CULT == 'Sir Bon', CULT := 'SirBon']
+l[CULT == 'PI 18256 Manregian', CULT := 'Manregian']
+l[CULT == 'Sinensis #5', CULT := 'Sinensis5']
+l[CULT == 'Chase D9', CULT := 'ChaseD9']
+l[CULT == 'PI 159568', CULT := 'PI_159568']
+
+
+mns <- merge(mns, l[, .(Variety = CULT, LFDA)])
+mns$LFDA
+mns[, lf := as.numeric(as.Date(mns$LFDA, format= '%m/%d/%Y'))]
+
+
+z <- lm(catkin_bud_len ~ lf + protog, mns)
+visreg(z)
+
+mns[, hist(lf, breaks = 20)]
+ggplot(mns, aes(x = protog, y = catkin_bud_len, color = lf)) + 
+  geom_jitter(width = 0.1, size = 5) + 
+  #scale_color_manual(values = c("black", "gray")) + 
   scale_x_discrete(labels = c("protandrous", "protogynous")) + 
+  scale_color_viridis() +
   labs(x = '', 
        y = 'Catkin bud length (mm) Jul 20', 
        color = '') + 
