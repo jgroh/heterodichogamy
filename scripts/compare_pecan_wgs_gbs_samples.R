@@ -48,20 +48,26 @@ kinship2[variety1 == variety2, sm := 1]
 
 
 # look at relatedness statistics for samples labelled as same variety vs. not
-ggplot(kinship1, aes(y = RELATEDNESS_AJK, x = as.factor(sm))) + 
+ggplot(kinship1[variety2 == 'PoSey'], aes(y = RELATEDNESS_AJK, x = as.factor(sm))) + 
   geom_point(position = position_jitter(width = 0.2))
+
+# kinship1[variety2 == 'PoSey'] The other homozygote appears to just be a clone of Mahan
+
 # these individuals look ok to use
 keep1 <- kinship1[sm == 1 & RELATEDNESS_AJK > 0.6, variety1]
 
-kinship2[, k1 := NULL]
+
+kinship1[sm == 0 & RELATEDNESS_AJK > 0.6]
+
+kinship2[, k1 := ifelse(variety1 %in% keep1 & variety1 == variety2, 'red', 'black')]
+
 kinship2[, k1 := ifelse(variety1 %in% keep1 & variety1 == variety2, 'red', 'black')]
 
 ggplot(kinship2, aes(y = RELATEDNESS_PHI, x = as.factor(sm), color = k1)) + 
   geom_point(position = position_jitter(width = 0.2))
 
 
-### THESE ARE THE INDIVIDUALS OK TO TRUST PHENOTYPE IN WGS DATA ###
-sort(keep1)
+
 
 
 
