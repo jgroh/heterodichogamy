@@ -1,0 +1,10 @@
+*.trees
+.ipynb_checkpoints/
+*.swp
+results/*
+.snakemake/
+.Rproj.user
+.Rhistory
+.DS_Store
+.ipynb
+datasets/human/data/
