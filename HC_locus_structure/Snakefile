@@ -1,0 +1,82 @@
+import pandas as pd
+
+PAWNEE_GENES = pd.read_csv('Pawnee_transcript_paths.txt', delimiter = '\t', header=None, names = ['gene','path']).set_index('gene').to_dict()['path']
+LAKOTA1_CDS = '/home/jgroh/heterodichogamy/HC_locus_structure/Lakota_v1.cds'
+PAWNEE_CDS = '/home/jgroh/heterodichogamy/HC_locus_structure/Pawnee.cds'
+
+CSIN_CDS = '/home/jgroh/heterodichogamy/Carya_genome_assemblies/Carya_sinensis/Carya_sinensis_BNU_v1.cds'
+CCAT_CDS = '/home/jgroh/heterodichogamy/Carya_genome_assemblies/Carya_cathayensis/BNU/Carya_cathayensis_BNU_v1.cds'
+
+rule all:
+  input:
+    expand("reciprocal_best_hits/{gene}/{target}_to_pawnee.txt", gene = PAWNEE_GENES.keys(), target = ['lakota1', 'Csin', 'Ccat']),
+
+rule blastn_to_Lakota1:
+  input:
+    lakota1=LAKOTA1_CDS,
+    pawnee=PAWNEE_CDS,
+    qry=lambda wildcards: PAWNEE_GENES[wildcards.gene]
+  output:
+    hit1="reciprocal_best_hits/{gene}/pawnee_to_lakota1.txt",
+    fasta="reciprocal_best_hits/{gene}/lakota1.fasta",
+    hit2="reciprocal_best_hits/{gene}/lakota1_to_pawnee.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/blast.yaml"
+  resources:
+    mem_mb=5000,
+    runtime=5
+  shell:
+    """
+    blastn -db {input.lakota1} -query {input.qry} -max_hsps 1 -outfmt "6 sseqid pident" > {output.hit1} &&
+    awk '{{print $1}}' {output.hit1} | \
+        head -n1 | \
+        xargs -I {{}} samtools faidx {input.lakota1} {{}} > {output.fasta} &&
+        blastn -db {input.pawnee} -query {output.fasta} -max_hsps 1 -outfmt "6 sseqid pident" > {output.hit2} 
+    """
+   
+rule blastn_to_Csin:
+  input:
+    target=CSIN_CDS,
+    pawnee=PAWNEE_CDS,
+    qry=lambda wildcards: PAWNEE_GENES[wildcards.gene]
+  output:
+    hit1="reciprocal_best_hits/{gene}/pawnee_to_Csin.txt",
+    fasta="reciprocal_best_hits/{gene}/Csin.fasta",
+    hit2="reciprocal_best_hits/{gene}/Csin_to_pawnee.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/blast.yaml"
+  resources:
+    mem_mb=5000,
+    runtime=5
+  shell:
+    """
+    blastn -db {input.target} -query {input.qry} -max_hsps 1 -outfmt "6 sseqid pident" > {output.hit1} &&
+    awk '{{print $1}}' {output.hit1} | \
+        head -n1 | \
+        xargs -I {{}} samtools faidx {input.target} {{}} > {output.fasta} &&
+        blastn -db {input.pawnee} -query {output.fasta} -max_hsps 1 -outfmt "6 sseqid pident" > {output.hit2} 
+    """
+
+rule blastn_to_Ccat:
+  input:
+    target=CCAT_CDS,
+    pawnee=PAWNEE_CDS,
+    qry=lambda wildcards: PAWNEE_GENES[wildcards.gene]
+  output:
+    hit1="reciprocal_best_hits/{gene}/pawnee_to_Ccat.txt",
+    fasta="reciprocal_best_hits/{gene}/Ccat.fasta",
+    hit2="reciprocal_best_hits/{gene}/Ccat_to_pawnee.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/blast.yaml"
+  resources:
+    mem_mb=5000,
+    runtime=5
+  shell:
+    """
+    blastn -db {input.target} -query {input.qry} -max_hsps 1 -outfmt "6 sseqid pident" > {output.hit1} &&
+    awk '{{print $1}}' {output.hit1} | \
+        head -n1 | \
+        xargs -I {{}} samtools faidx {input.target} {{}} > {output.fasta} &&
+        blastn -db {input.pawnee} -query {output.fasta} -max_hsps 1 -outfmt "6 sseqid pident" > {output.hit2} 
+    """
+

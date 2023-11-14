@@ -33,6 +33,9 @@ EDTA = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/ED
 
 rule all:
   input:
+#    "calls/Jregia_ALL2BNU_HJ1-0_TPPD.vcf.gz",
+    "calls/Jregia_ALL2Cha_NDR1_CDS.vcf.gz",
+    "calls/Jregia_ALL2Cha_HJ1-0_TPPD.vcf.gz",
     expand("alignment_files/BNU/{sample}.cram.crai", sample = ALL_SAMPLES),
   #  "calls/Jregia_ALL_variant_filtered.vcf.gz",
     expand("results/coverage_Chandler/sra/{sample}.txt.gz", sample = SRA_SAMPLES),
@@ -530,7 +533,7 @@ rule bcftools_call_by_chrom_ALL: # don't include invariant sites
     bai=expand("alignment_files/Chandler/{sample}.cram.crai", sample = ALL_SAMPLES),
     fai=CHANDLER_SAMTOOLS_INDEX
   output:
-    "calls/Jregia_ALL_chr{chr}.vcf.gz"
+    "calls/Jregia_ALL2Cha_chr{chr}.vcf.gz"
   resources:
     runtime = 48 * 60,
     mem_mb = 50000
@@ -542,6 +545,24 @@ rule bcftools_call_by_chrom_ALL: # don't include invariant sites
         --annotate "AD,DP,INFO/AD" --max-depth 200 {input.bams} | bcftools call -m -v -Oz -f GQ,GP -o {output}
     """
 
+rule bcftools_call_TPPD_BNU_ALL:
+  input:
+    fa=BNU,
+    bams=expand("alignment_files/BNU/{sample}.cram", sample = ALL_SAMPLES),
+    bai=expand("alignment_files/BNU/{sample}.cram.crai", sample = ALL_SAMPLES),
+    fai=BNU_SAMTOOLS_INDEX
+  output:
+    "calls/Jregia_ALL2BNU_HJ1-0_TPPD_unfltd.vcf.gz"
+  resources:
+    runtime = 120,
+    mem_mb = 50000
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    """
+    bcftools mpileup -Ou -f {input.fa} -r chr7:30783079-30787579 \
+        --annotate "AD,DP,INFO/AD" --max-depth 200 {input.bams} | bcftools call -m -v -Oz -f GQ,GP -o {output}
+    """
 
 
 rule bcftools_concat_chr_bams_founders:
@@ -556,9 +577,9 @@ rule bcftools_concat_chr_bams_founders:
 
 rule bcftools_concat_chr_bams_ALL:
   input:
-    expand("calls/Jregia_ALL_chr{chr}.vcf.gz", chr=CHROMS)
+    expand("calls/Jregia_ALL2Cha_chr{chr}.vcf.gz", chr=CHROMS)
   output:
-    "calls/Jregia_ALL_variant_unfiltered.vcf.gz"
+    "calls/Jregia_ALL2Cha_variant_unfiltered.vcf.gz"
   conda:
     '/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml'
   shell:
@@ -680,9 +701,9 @@ rule vcftools_filter_variant_sites_founders:
 
 rule vcftools_filter_variant_sites_ALL:
   input:
-    "calls/Jregia_ALL_variant_unfiltered.vcf.gz"
+    "calls/Jregia_ALL2Cha_variant_unfiltered.vcf.gz"
   output:
-    "calls/Jregia_ALL_variant_filtered.vcf.gz"
+    "calls/Jregia_ALL2Cha_variant_filtered.vcf.gz"
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
   shell:
@@ -694,6 +715,25 @@ rule vcftools_filter_variant_sites_ALL:
         --minQ 30 \
         --minGQ 30 \
         --min-meanDP 10 \
+        --max-meanDP 200 \
+        --recode --stdout | bgzip -c > {output}
+    """
+
+rule vcftools_filter_2BNU_TPPD:
+  input:
+    "calls/Jregia_ALL2BNU_HJ1-0_TPPD_unfltd.vcf.gz"
+  output:
+    "calls/Jregia_ALL2BNU_HJ1-0_TPPD.vcf.gz"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
+  shell:
+    """
+    vcftools --gzvcf {input} \
+        --remove-indels \
+        --maf 0.02 \
+        --max-missing 0.5 \
+        --minGQ 30 \
+        --min-meanDP 8 \
         --max-meanDP 200 \
         --recode --stdout | bgzip -c > {output}
     """
@@ -719,17 +759,41 @@ rule vcftools_filter_invariant_sites:
 
 rule subset_to_HJ1_0_TPPD:
   input:
-    "calls/Jregia_ALL_variant_filtered.vcf.gz"
+    "calls/Jregia_ALL2Cha_variant_unfiltered.vcf.gz"
   output:
-    "calls/Jregia_ALL_HJ1-0_TPPD_maf0.05_minDP10_minGQ40_noMiss.vcf.gz"
+    "calls/Jregia_ALL2Cha_HJ1-0_TPPD.vcf.gz"
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
   shell:
     """
     vcftools --gzvcf {input} \
+        --mac 2 \
+        --minDP 10 \
+        --max-missing 0.8 \
+        --minGQ 30 \
         --chr NC_049911.1 \
         --from-bp 31883277 \
         --to-bp 31887072 \
+        --recode --stdout | bgzip -c > {output}
+    """
+
+rule subset_to_NDR1:
+  input:
+    "calls/Jregia_ALL2Cha_variant_unfiltered.vcf.gz"
+  output:
+    "calls/Jregia_ALL2Cha_NDR1_CDS.vcf.gz"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
+  shell:
+    """
+    vcftools --gzvcf {input} \
+        --mac 2 \
+        --minDP 10 \
+        --max-missing 0.8 \
+        --minGQ 30 \
+        --chr NC_049911.1 \
+        --from-bp 31868934 \
+        --to-bp 31869734 \
         --recode --stdout | bgzip -c > {output}
     """
 
