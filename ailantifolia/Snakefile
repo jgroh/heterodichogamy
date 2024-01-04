@@ -1,0 +1,80 @@
+SAMPLES = ['JAIL_WA1_2', 'JAIL_WA1_3']
+
+CHROMS = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16']
+
+JCALI_GENOMES = ['Jcali_primary', 'Jcali_alt']
+
+
+rule all:
+  input:
+    expand("results/coverage_{genome}/{sample}.txt.gz", genome = JCALI_GENOMES, sample = SAMPLES),
+
+rule bwa_map:
+  input:
+    fa="/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/{genome}.fna",
+    index="/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/{genome}.fna.bwt",
+    r1="fastq/{sample}_R1.fq.gz",
+    r2="fastq/{sample}_R2.fq.gz"
+  output:
+    "alignment_files/{genome}/{sample}.cram"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  resources:
+    runtime = lambda wildcards, attempt: attempt * 24 * 60,
+    mem_mb = lambda wildcards, attempt: attempt * 30000
+  threads:
+    24
+  shell:
+    """
+    mkdir -p tmp_sorted_reads/{wildcards.genome}/{wildcards.sample} &&
+    bwa mem -t {threads} -M \
+        -R '@RG\\tID:{wildcards.sample}\\tLB:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:illumina' \
+        {input.fa} {input.r1} {input.r2} | \
+        samtools sort -O bam -l 0 -T tmp_sorted_reads/{wildcards.genome}/{wildcards.sample} - | \
+        samtools view -T {input.fa} -C -o {output} -
+    rm -r tmp_sorted_reads/{wildcards.genome}/{wildcards.sample}
+    """
+
+
+rule index_cram:
+  input:
+    "alignment_files/{genome}/{sample}.cram"
+  output:
+    "alignment_files/{genome}/{sample}.cram.crai"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    "samtools index {input}"
+
+
+rule coverage_Jcali_primary:
+  input:
+    cram="alignment_files/Jcali_primary/{sample}.cram",
+    crai="alignment_files/Jcali_primary/{sample}.cram.crai",
+  output:
+    focal="results/coverage_Jcali_primary/{sample}.txt.gz",
+    norm="results/coverage_Jcali_primary/{sample}_norm.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    """
+    samtools depth -a {input.cram} -r JAKSXK010000007.1:31348000-31400000 | gzip > {output.focal}
+    samtools depth -a {input.cram} -r JAKSXK010000001.1 | awk '{{ sum += $3 }} END {{ mean = sum / NR; print mean }}' > {output.norm}
+    """
+
+rule coverage_Jcali_alt:
+  input:
+    cram="alignment_files/Jcali_alt/{sample}.cram",
+    crai="alignment_files/Jcali_alt/{sample}.cram.crai",
+  output:
+    focal="results/coverage_Jcali_alt/{sample}.txt.gz",
+    norm="results/coverage_Jcali_alt/{sample}_norm.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    """
+    samtools depth -a {input.cram} -r JAKSXL010000006.1:30490000-30536000 | gzip > {output.focal}
+    samtools depth -a {input.cram} -r JAKSXL010000001.1 | awk '{{ sum += $3 }} END {{ mean = sum / NR; print mean }}' > {output.norm}
+    """
+
+

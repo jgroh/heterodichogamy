@@ -28,11 +28,12 @@ DJUG31_1 = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jmicrocarpa/Jm
 DJUG31_1_BWA_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jmicrocarpa/Jm3101_v1.0.fna.bwt',
 DJUG31_1_SAMTOOLS_INDEX = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jmicrocarpa/Jm3101_v1.0.fna.fai'
 
-EDTA = '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/EDTA'
 
 
 rule all:
   input:
+    "calls/Jregia_ALL2BNU_chr7_allsites_fltd.vcf.gz",
+    expand("results/coverage_BNU/{sample}.txt.gz", sample = FOUNDERS),
 #    "calls/Jregia_ALL2BNU_HJ1-0_TPPD.vcf.gz",
     "calls/Jregia_ALL2Cha_NDR1_CDS.vcf.gz",
     "calls/Jregia_ALL2Cha_HJ1-0_TPPD.vcf.gz",
@@ -451,6 +452,21 @@ rule samtools_coverage_Serr:
     samtools depth -a {input.bam} -r CM015664.1 | awk '{{ sum += $3 }} END {{ mean = sum / NR; print mean}}' > {output.norm}
     """
 
+rule samtools_coverage_BNU:
+  input:
+    cram="alignment_files/BNU/{sample}.cram",
+    crai="alignment_files/BNU/{sample}.cram.crai"
+  output: # calculate coverage for an arbitrary separate chromosome for normalization
+    focal="results/coverage_BNU/{sample}.txt.gz",
+    norm="results/coverage_BNU/{sample}_norm.txt"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    """
+    samtools depth -a {input.cram} -r chr7:30710000-30817000 | gzip > {output.focal}
+    samtools depth -a {input.cram} -r chr6 | awk '{{ sum += $3 }} END {{ mean = sum / NR; print mean}}' > {output.norm}
+    """
+
 rule samtools_coverage_Jcali_primary:
   input:
     cram="alignment_files/Jcali_primary/{sample}.cram",
@@ -545,23 +561,23 @@ rule bcftools_call_by_chrom_ALL: # don't include invariant sites
         --annotate "AD,DP,INFO/AD" --max-depth 200 {input.bams} | bcftools call -m -v -Oz -f GQ,GP -o {output}
     """
 
-rule bcftools_call_TPPD_BNU_ALL:
+rule bcftools_call_BNU_ALL_chr7:
   input:
     fa=BNU,
     bams=expand("alignment_files/BNU/{sample}.cram", sample = ALL_SAMPLES),
     bai=expand("alignment_files/BNU/{sample}.cram.crai", sample = ALL_SAMPLES),
     fai=BNU_SAMTOOLS_INDEX
   output:
-    "calls/Jregia_ALL2BNU_HJ1-0_TPPD_unfltd.vcf.gz"
+    "calls/Jregia_ALL2BNU_chr7_unfltd.vcf.gz"
   resources:
-    runtime = 120,
+    runtime = 24*60,
     mem_mb = 50000
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
   shell:
     """
-    bcftools mpileup -Ou -f {input.fa} -r chr7:30783079-30787579 \
-        --annotate "AD,DP,INFO/AD" --max-depth 200 {input.bams} | bcftools call -m -v -Oz -f GQ,GP -o {output}
+    bcftools mpileup -Ou -f {input.fa} -r chr7 \
+        --annotate "AD,DP,INFO/AD" --max-depth 200 {input.bams} | bcftools call -m -Oz -f GQ,GP -o {output}
     """
 
 
@@ -719,22 +735,39 @@ rule vcftools_filter_variant_sites_ALL:
         --recode --stdout | bgzip -c > {output}
     """
 
-rule vcftools_filter_2BNU_TPPD:
+rule vcftools_filter_2BNU_chr7_invariant:
   input:
-    "calls/Jregia_ALL2BNU_HJ1-0_TPPD_unfltd.vcf.gz"
+    "calls/Jregia_ALL2BNU_chr7_unfltd.vcf.gz"
   output:
-    "calls/Jregia_ALL2BNU_HJ1-0_TPPD.vcf.gz"
+    temp("calls/Jregia_ALL2BNU_chr7_invariant_fltd.vcf.gz")
   conda:
     "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
   shell:
     """
     vcftools --gzvcf {input} \
         --remove-indels \
-        --maf 0.02 \
-        --max-missing 0.5 \
+        --max-maf 0 \
+        --max-missing 0.8 \
         --minGQ 30 \
-        --min-meanDP 8 \
-        --max-meanDP 200 \
+        --minDP 10 \
+        --recode --stdout | bgzip -c > {output}
+    """
+
+rule vcftools_filter_2BNU_chr7_variant:
+  input:
+    "calls/Jregia_ALL2BNU_chr7_unfltd.vcf.gz"
+  output:
+    "calls/Jregia_ALL2BNU_chr7_variant_fltd.vcf.gz"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
+  shell:
+    """
+    vcftools --gzvcf {input} \
+        --remove-indels \
+        --mac 2 \
+        --max-missing 0.8 \
+        --minGQ 30 \
+        --minDP 10 \
         --recode --stdout | bgzip -c > {output}
     """
         
@@ -808,6 +841,17 @@ rule index_filtered_vcfs:
   shell:
     "bcftools index {input}"
 
+rule index_fltd_2BNUchr7:
+  input:
+    "calls/Jregia_ALL2BNU_chr7_{sites}_fltd.vcf.gz"
+  output:
+    "calls/Jregia_ALL2BNU_chr7_{sites}_fltd.vcf.gz.csi"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    "bcftools index {input}"
+
+
 rule nvariants_filtered:
   input:
     "calls/Jregia_founders_variant_filtered.vcf.gz"
@@ -830,6 +874,18 @@ rule concat_vcfs:
   shell:
     "bcftools concat --allow-overlaps {input.variant} {input.invariant} -O z -o {output}"
 
+rule concat_vcfs_ALL2BNU_chr7:
+  input:
+    variant="calls/Jregia_ALL2BNU_chr7_variant_fltd.vcf.gz",
+    invariant="calls/Jregia_ALL2BNU_chr7_invariant_fltd.vcf.gz",
+    variant_csi="calls/Jregia_ALL2BNU_chr7_variant_fltd.vcf.gz.csi",
+    invariant_csi="calls/Jregia_ALL2BNU_chr7_invariant_fltd.vcf.gz.csi"
+  output:
+    "calls/Jregia_ALL2BNU_chr7_allsites_fltd.vcf.gz"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    "bcftools concat --allow-overlaps {input.variant} {input.invariant} -O z -o {output}"
 
 rule tabix_allsites_vcf:
   input:
@@ -842,6 +898,15 @@ rule tabix_allsites_vcf:
     "tabix {input}"
 
 
+rule tabix_allsites_vcf_ALl2BNU_chr7:
+  input:
+    "calls/Jregia_ALL2BNU_chr7_allsites_fltd.vcf.gz"
+  output:
+    "calls/Jregia_ALL2BNU_chr7_allsites_fltd.vcf.gz.tbi"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    "tabix {input}"
 
 
 ############ RUN GWAS ##################
@@ -1003,13 +1068,15 @@ rule EDTA_Chandler:
   threads:
     32
   resources:
-    runtime=24*60,
+    runtime=72*60,
     mem_mb=50000
   shell:
     """
-    perl /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/EDTA/EDTA.pl \
+    perl /home/jgroh/heterodichogamy/EDTA/EDTA.pl \
         --genome /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2.fa \
         --anno 1 \
+        --sensitive 1 \
+        --overwrite 1 \
         --threads {threads} \
         --cds /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2_CDS.fasta \
         --u 1.5e-9
@@ -1026,13 +1093,15 @@ rule EDTA_BNU:
   threads:
     32
   resources:
-    runtime=24*60,
+    runtime=72*60,
     mem_mb=50000
   shell:
     """
-    perl /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/EDTA/EDTA.pl \
+    perl /home/jgroh/heterodichogamy/EDTA/EDTA.pl \
         --genome /home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/BNU/JRE_v3.3.fasta \
         --anno 1 \
+        --sensitive 1 \
+        --overwrite 1 \
         --threads {threads} \
         --u 1.5e-9
     """
@@ -1047,3 +1116,14 @@ rule genoLD:
     "/home/jgroh/heterodichogamy/conda_envs/vcftools.yaml"
   shell:
     "vcftools --gzvcf {input} --chr NC_049911.1 --from-bp 31860000 --to-bp 31890000 --geno-r2 --ld-window-bp-min 50 --out Jregia_founders_geno_r2"
+
+
+
+
+
+
+
+
+
+
+

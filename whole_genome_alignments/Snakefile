@@ -79,6 +79,7 @@ vs_CillPawGnoms = {
 
 rule all:
   input:
+    '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jcali_primary.gff',
     expand("QRY_vs_hJregCha_alignments/{gnom}/HJ1-0_TPPD.txt", gnom = ['HJregBNU', 'hJcaliAlt', 'HJcaliPrimary', 'hJmanBNU', 'HJmanNFU', 'hJnigBNU', 'HJmic']),
     expand("QRY_vs_hJcaliAlt_alignments/{gnom}/alignment.maf", gnom=vs_hJcaliAltGnoms.keys()),
     #expand("QRY_vs_CillPaw_alignments/{gnom}/alignment.maf", gnom=vs_CillPawGnoms.keys()),
@@ -92,7 +93,7 @@ rule all:
     expand("QRY_vs_hJmanBNU_alignments/{qryGnom}/Dxy_chr7.txt", qryGnom=vs_hJmanBNUGnoms.keys()),
 
 # ============= Liftoff Chandler annotation to Jcali_primary ==============
-rule liftoff:
+rule liftoff_hJcal:
   input:
     gff='/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/GCF_001411555.2_Walnut_2.0_genomic.gff',
     ref='/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/GCF_001411555.2_Walnut_2.0_genomic.fna', # should contain all unplaced scaffolds, any sequence present in gff
@@ -107,6 +108,24 @@ rule liftoff:
         -dir "/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornia/" \
         -o {output} \
         -u "/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jreg_to_JcaliAlt_unmapped.txt" \
+        {input.target} {input.ref}
+    """
+
+rule liftoff_HJcal:
+  input:
+    gff='/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/GCF_001411555.2_Walnut_2.0_genomic.gff',
+    ref='/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/GCF_001411555.2_Walnut_2.0_genomic.fna', # should contain all unplaced scaffolds, any sequence present in gff
+    target='/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jcali_primary.fna',
+  output:
+    '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jcali_primary.gff'
+  conda:
+    '/home/jgroh/heterodichogamy/conda_envs/liftoff.yaml'
+  shell:
+    """
+    liftoff -g {input.gff} \
+        -dir "/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornia/" \
+        -o {output} \
+        -u "/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jreg_to_JcaliP_unmapped.txt" \
         {input.target} {input.ref}
     """
 
