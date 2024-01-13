@@ -13,6 +13,8 @@ SRA_SAMPLES = meta[meta['type'].isin(SRA_VARS)]['run'].tolist()
 ALLSAMPLES = SRA_SAMPLES_ALL + MYSAMPLES
 ANALYSIS_SAMPLES = SRA_SAMPLES + MYSAMPLES
 
+JREG_SAMPLES = ['Chandler','JG0026','JG0012']
+
 PAW_CHROMS = ['CM0318' + s + '.1' for s in ['09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']]
 LAK1_CHROMS = ['CM0318' + x + '.1' for x in [str(s) for s in list(range(25, 41))]]
 
@@ -23,6 +25,7 @@ ruleorder: bwa_map_regia_to_Lakota1 > bwa_map_mysamples > bwa_map_to_Pawnee > bw
 
 rule all:
   input:
+    "calls/Jreg_to_Lakota1_chr4_CDS.vcf.gz",
     expand("/home/jgroh/heterodichogamy/regia/alignment_files/Lakota_v1/{sample}_sorted.cram", sample=['Chandler', 'JG0026', 'JG0012']),
     "results/LD_Lakota_v1.geno.ld",
 #    "results/pixy/ind_het_Lakota_v1_CDS_pi.txt",
@@ -369,6 +372,16 @@ rule samtools_index_crams:
   shell:
     "samtools index {input}"
 
+rule samtools_index_Jreg_crams:
+  input:
+    "/home/jgroh/heterodichogamy/regia/alignment_files/Lakota_v1/{sample}_sorted.cram"
+  output:
+    "/home/jgroh/heterodichogamy/regia/alignment_files/Lakota_v1/{sample}_sorted.cram.crai"
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    "samtools index {input}"
+
 
 rule samtools_coverage:
   input:
@@ -498,6 +511,24 @@ rule bcftools_call_by_chrom:
         --annotate "AD,DP,INFO/AD" {input.crams} | bcftools call -m -f GQ,GP -o {output}
     """
 
+rule bcftools_call_regia_CDS:
+  input:
+    fa='/home/jgroh/heterodichogamy/Carya_genome_assemblies/Lakota_v1.fna',
+    fai='/home/jgroh/heterodichogamy/Carya_genome_assemblies/Lakota_v1.fna.fai',
+    crams=expand("/home/jgroh/heterodichogamy/regia/alignment_files/Lakota_v1/{sample}_sorted.cram", sample=JREG_SAMPLES),
+    crai=expand("/home/jgroh/heterodichogamy/regia/alignment_files/Lakota_v1/{sample}_sorted.cram.crai", sample=JREG_SAMPLES)
+  output:
+    "calls/Jreg_to_Lakota1_chr4_CDS.vcf.gz"
+  resources:
+    runtime = 24 * 60,
+    mem_mb = 20000
+  conda:
+    "/home/jgroh/heterodichogamy/conda_envs/samtools_1.17.yaml"
+  shell:
+    """
+    bcftools mpileup -Ou -f {input.fa} -R /home/jgroh/heterodichogamy/Carya_genome_assemblies/Lakota_v1_chr4_CDS_coords.txt \
+        --annotate "AD,DP,INFO/AD" {input.crams} | bcftools call -m -f GQ,GP -o {output}
+    """
 
 rule bcftools_concat_chr_bams_Pawnee:
   input:

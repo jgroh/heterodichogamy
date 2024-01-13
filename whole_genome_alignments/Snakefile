@@ -82,7 +82,7 @@ rule all:
     '/home/jgroh/heterodichogamy/Juglans_genome_assemblies/Jcalifornica/Jcali_primary.gff',
     expand("QRY_vs_hJregCha_alignments/{gnom}/HJ1-0_TPPD.txt", gnom = ['HJregBNU', 'hJcaliAlt', 'HJcaliPrimary', 'hJmanBNU', 'HJmanNFU', 'hJnigBNU', 'HJmic']),
     expand("QRY_vs_hJcaliAlt_alignments/{gnom}/alignment.maf", gnom=vs_hJcaliAltGnoms.keys()),
-    #expand("QRY_vs_CillPaw_alignments/{gnom}/alignment.maf", gnom=vs_CillPawGnoms.keys()),
+    expand("QRY_vs_CillPaw_alignments/{gnom}/alignment.maf", gnom=['hJregCha']),
     expand("QRY_vs_hJmanBNU_alignments/{gnom}/alignment.maf", gnom=vs_hJmanBNUGnoms.keys()),
     expand("QRY_vs_HJmic_alignments/{gnom}/alignment.maf", gnom=vs_HJmicGnoms.keys()),
     expand("QRY_vs_hJregCha_alignments/{gnom}/alignment.maf", gnom=vs_hJregGnoms.keys()),
