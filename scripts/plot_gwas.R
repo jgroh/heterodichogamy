@@ -17,6 +17,28 @@ regia_coverage <- rbindlist(lapply(list.files("~/workspace/heterodichogamy/regia
        }))
 regia_coverage[, species := 'regia']
 
+# -- coverage to BNU assembly
+reg2BNU_rawcvg <- rbindlist(lapply(list.files("~/workspace/heterodichogamy/regia/results/coverage_BNU/", 
+                                                  pattern = '*.txt.gz', full.names = T),
+                                       function(x){
+                                         z <- fread(x, select = 2:3, col.names = c("position", "coverage"))
+                                         z[, sample := gsub(".txt.gz", "", basename(x))]
+                                         return(z)
+                                       }))
+
+reg2BNU_cvg_nrm <- rbindlist(lapply(list.files("~/workspace/heterodichogamy/regia/results/coverage_BNU/", 
+                                                      pattern = '*_norm.txt', full.names = T), 
+                                           function(x) {
+                                             z <- fread(x, col.names = 'avg_cvg')
+                                             z[, sample := gsub("_norm.txt", "", basename(x))]
+                                             return(z)
+                                           }
+))
+reg2BNU_cvg <- merge(reg2BNU_rawcvg, reg2BNU_cvg_nrm)
+
+
+
+
 
 hindsii_coverage <- rbindlist(lapply(list.files("~/workspace/heterodichogamy/hindsii/results/coverage_chr11_31.8-32Mb/", full.names = T),
                                    function(x){
@@ -60,12 +82,19 @@ dxy <- fread("~/workspace/heterodichogamy/regia/results/pixy/protandrous_vs_prot
 genes <- fread("~/workspace/heterodichogamy/H_locus_structure/Chandler_genes_31.865-31.895Mb.BED", 
                select = c(2,3,6), col.names = c("start", "end", 'strand'))
 
-# ---- calculate coverage in 500bp windows
+# ---- calculate coverage in 500bp windows ------
 coverage[, window := cut(pos, breaks = seq(31.8e6, 32e6, by = 500), labels = seq(31.8e6, 32e6-500, by = 500), include.lowest =T), by = sample]
 coverage[, window := as.numeric(as.character((window)))]
 coverage_bins <- coverage[, .(coverage = mean(coverage)), by = .(sample, species, window)]
 coverage_bins <- merge(coverage_bins, pheno)
 
+#30710000-30817000
+winsize <- 1e3
+reg2BNU_cvg[, window := cut(position, breaks = seq(30710000, 30817000, by = winsize), labels = seq(30710000, 30817000-winsize, by = winsize), include.lowest =T), by = sample]
+reg2BNU_cvg[, window := as.numeric(as.character((window)))]
+reg2BNU_cvg_win <- reg2BNU_cvg[, .(coverage = mean(coverage)), by = .(sample, window, avg_cvg)]
+reg2BNU_cvg_win <- merge(reg2BNU_cvg_win, pheno[, .(sample, phenotype)])
+reg2BNU_cvg_win[, nrm_cvg := coverage/avg_cvg]
 
 # ===== make plots ===== 
  
@@ -98,7 +127,10 @@ ggplot(plt_GWAS_data, aes(x = N, y = -log10(p_wald), color = chr)) +
 #ggplot(wgs[CHR=='NC_049911.1'], aes(x = BP, y = -log10(P))) + 
 #  geom_point() 
 
+
+
 # finer scale
+#31883560-31884214
 plot1 <- ggplot(wgs[chr=='NC_049911.1' & ps > 3.1865e7 & ps < 3.1895e7], aes(x = ps, y = -log10(p_wald))) + 
   geom_point() + 
   theme_classic() + 
@@ -125,14 +157,17 @@ plot1 <- ggplot(wgs[chr=='NC_049911.1' & ps > 3.1865e7 & ps < 3.1895e7], aes(x =
 plot1
 
 # ----- coverage -----
-coverage_bins[phenotype == 'protandrous', genotype := 'hh']
-coverage_bins[phenotype == 'protogynous' & sample != 'JG0026', genotype := 'Hh']
-coverage_bins[sample == 'JG0026', genotype := 'HH']
+coverage_bins[phenotype == 'protandrous', genotype := 'gg']
+coverage_bins[phenotype == 'protogynous' & sample != 'JG0026', genotype := 'Gg']
+coverage_bins[sample == 'JG0026', genotype := 'GG']
+
+coverage_bins[, cvg_nrm := coverage/mean(coverage), by = sample]
+
 
 plot2 <- ggplot(coverage_bins[species == 'regia' & window >= 31.865e6 & window <= 31.895e6],
-       aes(x = window, y = coverage, group = sample, color = genotype)) +
+       aes(x = window, y = cvg_nrm, group = sample, color = genotype)) +
   geom_line(linewidth = 0.8) +
-  scale_color_manual(values = c("tan", "turquoise4", 'maroon')) +
+  scale_color_manual(values = c("tan", "maroon", 'turquoise4')) +
   #geom_line(data = coverage_bins[species == 'regia' & genotype == 'hh' & window >= 31.865e6 & window <= 31.895e6], 
   #          aes(x = window, y = coverage), 
   #          alpha = 0.9, linewidth = 0.8, color = 'tan') + 
@@ -146,32 +181,93 @@ plot2 <- ggplot(coverage_bins[species == 'regia' & window >= 31.865e6 & window <
   #scale_color_manual(values = c("#cfb582","#28bbd1",'#94435b')) + 
   theme_classic() + 
   scale_x_continuous(breaks = c(31.87e6, 31.88e6, 31.89e6), labels = c(31.87, 31.88, 31.89)) +
-  labs(x = 'Position (Mb)', y =  'Read depth', color = '') +
+  labs(x = 'Position (Mb)', y =  'Normalized\nread depth', color = '') +
   theme(aspect.ratio = 0.25,
-        legend.position = c(0.1, 0.9),
+        legend.position = c(0.9, 0.8),
         axis.text.x = element_text(size=12),
         axis.text.y = element_text(size=12),
         axis.title.y = element_text(size=14),
         axis.title.x = element_text(size = 14, vjust = -2),
-        legend.text = element_text(size = 12)
-  )
+        legend.text = element_text(size = 12, face = 'italic')
+  ) + 
+  geom_segment(aes(x = 31883277, xend =  31884479, y = 4, yend = 4))
 plot2
 
-plot2_no_leg <- ggplot(coverage_bins[species == 'regia' & window >= 31.86e6 & window <= 31.9e6],
-                aes(x = window, y = coverage, color = phenotype, group = sample)) +
-  geom_line(linewidth = 1) + 
-  scale_color_manual(values = c("#cfb582","#28bbd1",'#94435b')) + 
+plot2_no_leg <- ggplot(coverage_bins[species == 'regia' & window >= 31.865e6 & window <= 31.895e6],
+                aes(x = window, y = cvg_nrm, color = genotype, group = sample)) +
+  geom_line(linewidth = 0.8) + 
+  scale_color_manual(values = c("tan", "turquoise4", 'maroon')) +
   theme_classic() + 
-  scale_x_continuous(n.breaks = 10, labels = NULL) +
-  labs(x = '', y =  'Read depth', color = '', title = 'regia') +
+ # scale_x_continuous(n.breaks = 10, labels = NULL) +
+  scale_x_continuous(breaks = c(31.87e6, 31.88e6, 31.89e6), labels = c(31.87, 31.88, 31.89)) +
+  
+  labs(x = '', y =  'Normalized read depth', color = '') +
   theme(aspect.ratio = 0.25,
+        legend.position = c(0.09, 0.9),
+        
         plot.title = element_text(vjust = -10, hjust = 0.1),
-        legend.position = 'none',
+        #legend.position = 'none',
         axis.text.x = element_text(size=12),
         axis.text.y = element_text(size=12),
-        axis.title.y = element_text(size=14),
+        axis.title.y = element_text(size=14, vjust = 2),
         axis.title.x = element_text(size = 14, vjust = -2),
+        legend.text = element_text(size = 12)
+        
   )
+
+plot2_no_leg
+
+# ----- coverage to BNU----- 
+reg2BNU_cvg_win[phenotype == 'protandrous', genotype := 'gg']
+reg2BNU_cvg_win[phenotype == 'protogynous' & sample != 'JG0026', genotype := 'Gg']
+reg2BNU_cvg_win[sample == 'JG0026', genotype := 'GG']
+BNUst <- 30746000
+BNUen <- 30805000
+  
+cvg_plt2BNU <- ggplot(reg2BNU_cvg_win[genotype != '??' & window > BNUst & window < BNUen],
+                  aes(x = window, y = nrm_cvg, group = sample, color = genotype)) +
+  geom_line(data = reg2BNU_cvg_win[ genotype != '??' & window > BNUst & window < BNUen], linewidth = 0.8, alpha = 0.9)  +
+  
+  #scale_color_manual( values = c('gray', 'maroon', 'tan', 'darkblue')) +
+  scale_color_manual( values = c('tan', 'maroon', 'turquoise4')) +
+  scale_x_continuous(limits = c(BNUst, BNUen), breaks = seq(30.75e6, 30.79e6, length.out = 3), labels = seq(30.75, 30.79, length.out = 3)) +
+  
+  theme_classic() + 
+  #scale_x_continuous(n.breaks = 5) +
+  labs(x = '', y =  'Normalized\nread depth', color = '', title = '') +
+  theme(
+    #aspect.ratio = .3,
+    plot.margin = margin(30,30,30,30, "pt"),
+    text = element_text(size = 12),
+    axis.text = element_text(size = 12),
+    #axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 12, vjust = -2),
+    axis.title.y = element_text(size = 12, vjust = 2),
+    legend.position = c(0.9, 1.1),
+    legend.text = element_text(size = 10, face = 'italic'),
+    legend.key.size = unit(.4, 'cm')
+  ) +
+annotate("rect", xmin = 30759890, xmax = 30760855, ymin = 1.8, ymax = 2,
+         alpha = .1,fill = '#94435b') + 
+  geom_segment(aes(x = 30759890, y = 1.9, xend = 30760855, yend = 1.9),
+               arrow = arrow(length = unit(0.2, "cm")), color = '#94435b') +
+  annotate("rect", xmin = 30784032, xmax = 30786419, ymin = 1.8, ymax = 2,
+           alpha = .1,fill = 'blue') + 
+  geom_segment(aes(x = 30786419, y = 1.9, xend = 30784032, yend = 1.9),
+               arrow = arrow(length = unit(0.2, "cm")), color = 'blue') #+
+cvg_plt2BNU
+
+ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jregia_cvg2BNU.pdf', plot = cvg_plt2BNU, width = 7, height = 2.5, units = 'in')
+
+
+
+
+
+
+
+
+
+
 
 # ----- Dxy -----
 

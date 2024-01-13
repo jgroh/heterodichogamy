@@ -32,6 +32,7 @@ dxy[, qnt0.95 := quantile(Dxy, probs = c(0.95), na.rm=T), by = .(refGnom, qryGno
 dxy[, qnt0.99 := quantile(Dxy, probs = c(0.99), na.rm=T), by = .(refGnom, qryGnom)]
 
 # ===== Plot divergence against Chandler =====
+
 DxyhJregSub <- dxy[refGnom == 'hJregCha' & 
                    
                      window > 31.855e6 & 
@@ -39,10 +40,13 @@ DxyhJregSub <- dxy[refGnom == 'hJregCha' &
 DxyhJregSub[species == 'Cycl', species := 'Cpal']
 DxyhJregSub[, species1 := factor(species, levels = c("Jreg", 'Jsig', 'Jman', 'Jcal', 'Jmic', 'Jnig', 'Pste', 'Cpal', 'Pstr', 'Plon', 'Cill'))]
 
+DxyhJregSub[hap == 'h', hap := 'g']
+DxyhJregSub[hap == 'H', hap := 'G']
+
 ggplot(DxyhJregSub, aes(x = window, y = Dxy, color = hap, group = qryGnom) ) + 
   facet_wrap(~species1) +
   #geom_point()  +
-  labs(x = "h Haplotype (Mb)", y = 'Nucleotide divergence', color = '') +
+  labs(x = "g haplotype (Mb)", y = 'Nucleotide divergence', color = '') +
   geom_rect(data = DxyhJregSub, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax = qnt0.95), fill = 'gray95', alpha = 0.5, color = 'NA') + 
   geom_line() +
   
@@ -51,7 +55,7 @@ ggplot(DxyhJregSub, aes(x = window, y = Dxy, color = hap, group = qryGnom) ) +
   theme_classic() + 
   theme(axis.text.x = element_text(angle = 60, vjust = 0.5),
         legend.position = c(0.9, 0.1), 
-        legend.key.size = unit(1, 'cm'), 
+        legend.key.size = unit(.5, 'cm'), 
         legend.text = element_text(size = 14), 
         axis.text.y = element_text(size = 10), 
         axis.title = element_text(size = 14)) + 
@@ -117,6 +121,8 @@ ggplot(Dxy_TEs[hap == 'h'] ) +
 
 # ===== Plot regia divergence against Chandler =====
 
+DxyhJregSub[hap == 'H', hap := 'G']
+DxyhJregSub[hap == 'h', hap := 'g']
 plot1 <- ggplot(DxyhJregSub[species == 'Jreg'], aes(x = window, y = Dxy, color = hap, group = qryGnom) ) + 
   #facet_wrap(~species) +
   #geom_point()  +
@@ -125,15 +131,16 @@ plot1 <- ggplot(DxyhJregSub[species == 'Jreg'], aes(x = window, y = Dxy, color =
   geom_line(linewidth = 1) +
   scale_y_continuous(breaks = c(0,0.1,0.2)) +
   
-  scale_x_continuous(breaks = seq(31.86e6, 31.89e6, length.out = 3), labels = seq(31.86, 31.89, length.out = 3)) +
+  scale_x_continuous(breaks = seq(31.86e6, 31.89e6, length.out = 3), labels = sprintf("%.3f", seq(31.86, 31.89, length.out = 3))) +
   scale_color_manual(values = c('darkgoldenrod1', "#413a6e", 'darkgray')) +
   theme_classic() + 
   theme(axis.text.x = element_text(vjust = 0.5), 
         aspect.ratio = 0.6, 
         axis.text = element_text(size = 10), 
-        legend.position = c(0.85, 0.8),
+        legend.position = c(0.9, 0.8),
         plot.title = element_text(face = 'italic', size = 10),
-        legend.text = element_text(size = 10)) + 
+        legend.text = element_text(size = 10, face = 'italic'),
+        legend.key.size = unit(0.5, 'cm')) + 
   # NDR1
   annotate("rect", xmin = 31868750,
            xmax = 31869735, 
@@ -172,7 +179,7 @@ DxyhJcalSub <- dxy[refGnom == 'hJcaliAlt' &
 
 
 plot3 <- ggplot(DxyhJcalSub, aes(x = window, y = Dxy, color = hap, group = qryGnom) ) + 
-  facet_wrap(~species) +
+  #facet_wrap(~species) +
   #geom_point()  +
   labs(x = "", y = '', title = 'J. californica') +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax = qnt0.99), fill = 'gray95', alpha = 0.5, color = 'NA') + 

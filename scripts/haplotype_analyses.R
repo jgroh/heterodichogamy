@@ -138,7 +138,8 @@ ggplot(haps[genotype == 'Hh'],
         legend.position = 'none', aspect.ratio = .1)
 
 # across just TPPD, potentially no phasing errors
-ggplot(haps[pos > 31884269 & pos < 31887072], 
+# here, exclude 3UTR as all HJ1A repeats map there
+ggplot(haps[pos > 31884478 & pos < 31887006], 
        aes(x = SNPrank, y = hapRank)) + 
   geom_tile(aes(fill = as.factor(allele)), width = 1, height = 1) + 
   scale_fill_manual(values = c('cornsilk', 'chocolate4')) + 
@@ -148,45 +149,11 @@ ggplot(haps[pos > 31884269 & pos < 31887072],
         legend.position = 'none')
 
 
-# ===== Choose individuals to use as reference panel for phasing
-# didn't actually improve phase errors visually, so obsolete, but keeping code for now. 
-# 
-# nonref_hh <- haps[genotype == 'hh', sum(allele), by = hapRank]
-# setkey(nonref_hh, V1)
-# tail(nonref_hh, 70)
-# 
-# hh_hap_ranks <- c(174, 123, 199, 159, 150, 72, 164, 99, 203)
-# ref_hh_indv <- haps[hapRank %in% hh_hap_ranks, (unique(run))]
-# ref_hh_indv <- c(ref_hh_indv, 'Chandler')
-# 
-# ref_HH_indv <- haps[genotype == 'HH', unique(run)]
-# 
-# ref_Hh_indv <- c("JG0031", 'JG0061', 'JG0166', 'SRR14430143', 
-#                  'SRR14430256', "SRR14430327", "SRR14888650", "SRR18664024")
-# 
-# ref_inds <- c(ref_hh_indv, ref_HH_indv, ref_Hh_indv)
-# unique(ref_inds)
-# 
-# ggplot(haps[run %in% ref_inds], 
-#        aes(x = SNPrank, y = hap.id)) + 
-#   facet_wrap(~run) + 
-#   geom_tile(aes(fill = as.factor(allele)), width = 1, height = 1) + 
-#   scale_fill_manual(values = c('cornsilk', 'chocolate4')) + 
-#   theme_classic() + 
-#   labs(x = '', y = '', fill = 'Allele') + 
-#   theme(
-#         legend.position = 'none')
-#        
-#        
-# fwrite(as.data.table(ref_inds), 
-#        "~/workspace/heterodichogamy/regia/calls/ref_inds.txt",
-#        col.names = F, row.names = F, quote = F)
-
 
 # ========= Align with gene =====
 
 # across just TPPD, potentially no phasing errors
-hapsTPPD <- haps[pos > 31884269 & pos < 31887072]
+hapsTPPD <- haps[pos > 31884478 & pos < 31887006]
 hapsTPPD[, SNPrankTPPD := seq(1, .N), by = .(run, hap.id)]
 hapsTPPD[, hapRankTPPD := seq(1, .N), by = .(pos)]
 
@@ -213,40 +180,40 @@ plot.window(xlim = c(0, 1), ylim = c(0, 1))
 #lines(x = c(0, 1), y = c(0, 0))
 lines(x = c(0, 1), y = c(.3, .3))
 
-pos_scld <- unique(haps[pos > 31884269 & pos < 31887072,pos])
-pos_scld <- (pos_scld - 31884269)/(max(TPP[, end]) - 31884269)
+pos_scld <- unique(haps[pos > 31884478 & pos < 31887006,pos])
+pos_scld <- (pos_scld - 31884478)/(31887006 - 31884478)
 
 for(i in 1:nSNP){
   lines(x = c(i/nSNP, pos_scld[i]), y= c(0.5, 0.3), lwd = 0.5)
 }
 
-TPP[, start_scld := (start - min(start))/(max(end) - min(start))]
-TPP[, end_scld := (end - min(start))/(max(end) - min(start))]
+TPP_CDS <- TPP[type == 'CDS']
+TPP_CDS[, start_scld := (start - min(start))/(max(end) - min(start))]
+TPP_CDS[, end_scld := (end - min(start))/(max(end) - min(start))]
 
-for(i in 1:nrow(TPP)){
-  if(TPP[i, type == 'exon']){
-    polygon(x= c(TPP[i, start_scld], TPP[i, start_scld], TPP[i, end_scld], TPP[i, end_scld]),
-            y = c(0.25, 0.3, 0.3, 0.25), col = 'gray')
-  }
-}
-for(i in 1:nrow(TPP)){
-  if(TPP[i, type == 'CDS']){
-    polygon(x= c(TPP[i, start_scld], TPP[i, start_scld], TPP[i, end_scld], TPP[i, end_scld]),
+#for(i in 1:nrow(TPP)){
+#  if(TPP[i, type == 'exon']){
+#    polygon(x= c(TPP[i, start_scld], TPP[i, start_scld], TPP[i, end_scld], TPP[i, end_scld]),
+#            y = c(0.25, 0.3, 0.3, 0.25), col = 'gray')
+#  }
+#}
+for(i in 1:nrow(TPP_CDS)){
+  #if(TPP[i, type == 'CDS']){
+    polygon(x= c(TPP_CDS[i, start_scld], TPP_CDS[i, start_scld], TPP_CDS[i, end_scld], TPP_CDS[i, end_scld]),
             y = c(0.25, 0.3, 0.3, 0.25), col = 'goldenrod3')
-  }
+  #}
 }
 
 
 # ===== Tally Polymorphisms and fixed differences =====
 
 # restrict to CDS regions
-cds_regions <- TPP[type == 'CDS']
-setkey(cds_regions, start)
+setkey(TPP_CDS, start)
 
 # get list of SNPs that fall within cds
 cds_snp_pos <- NULL
 for(p in unique(hapsTPPD$pos)){
-    if(any(cds_regions[, p >= start & p <= end])){
+    if(any(TPP_CDS[, p >= start & p <= end])){
       cds_snp_pos <- c(cds_snp_pos, p)
     }
 }
@@ -265,7 +232,7 @@ hapsTPPD[pos == min(pos), table(haplotype)]
 
 # get CDS sequence
 
-CDS <- cds_regions[, seq(start,end), by = start_scld][, .(pos = rev(V1))]
+CDS <- TPP_CDS[, seq(start,end), by = start_scld][, .(pos = rev(V1))]
 
 CDS[, seq_rank := seq(1, .N)]
 CDS[, refseq := ref_cds_seq]
@@ -356,6 +323,7 @@ z <- matrix(c(polyS, divS, polyN, divN), nrow = 2)
 
 fisher.test(z)
 
+cds_SNP_counts[fixed_poly == 'fixed']
 
 # ========= test whether nonsynonymous polymorphism is greater in H haplotypes
 # ******* I don't think this approach is actually correct because it ignores the fact that these are two separate 'populations'

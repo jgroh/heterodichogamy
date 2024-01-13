@@ -1,54 +1,100 @@
 library(data.table)
 library(ggplot2)
 
-
-wgs_samples <- fread("~/workspace/heterodichogamy/pecan/WGS_data/wgs_samples.tsv")
+# ---- read data -----
+wgs_samples <- fread("~/workspace/heterodichogamy/pecan/WGS_data/all_wgs_varieties_unverified.txt")
 gbs_samples <- fread("~/workspace/heterodichogamy/pecan/GBS_data/metadata.tsv")
+analysis_set <- fread("~/workspace/heterodichogamy/pecan/WGS_data/analysis_set.txt")
 kinship1 <- fread("~/workspace/heterodichogamy/pecan/WGS_GBS_samples.relatedness")
 kinship2 <- fread("~/workspace/heterodichogamy/pecan/WGS_GBS_samples.relatedness2")
 
-# inspect intersection of varieties
-sort(wgs_samples[, type])
-sort(gbs_samples[, Cultivar])
-sort(intersect(wgs_samples[, type], gbs_samples[, Cultivar]))
-
-# the matrices have redundant rows. We are expecting 34*83 unique combinations
+# ---- clean data -----
 # Note matrices don't have same format
-kinship1 <- kinship1[INDV1 %in% gbs_samples[, Accession] & INDV2 %in% wgs_samples[, run]]
+# there are 53+83=136 individuals
+# first matrix has choose(136,2) + 136 = 9316 rows
 
 # the 2nd kinship matrix has redundant rows
-kinship2 <- kinship2[INDV1 %in% wgs_samples[, run] & INDV2 %in% gbs_samples[, Accession]]
+# the 2nd matrix has n^2 rows, where n is number of individuals in vcf
+# filter these to remove duplicates
 
-# Assign variety in 1st kinship matrix 
-for(i in 1:nrow(kinship1)){
-  ind1 <- kinship1[i, INDV1]
-  ind2 <- kinship1[i, INDV2]
+keep_index <- which(kinship2[, paste0(INDV1, INDV2, sep = '_')] %in% kinship1[, paste0(INDV1, INDV2, sep = '_')])
+kinship2 <- kinship2[keep_index]
+
+kinship <- merge(kinship1, kinship2)
+
+
+# ----- assign varieties -----
+
+# Assign varieties in kinship matrix 
+for(i in 1:nrow(kinship)){
+  ind1 <- kinship[i, INDV1]
+  ind2 <- kinship[i, INDV2]
   
-  kinship1[i, variety1 := gbs_samples[Accession == ind1, Cultivar]]
-  kinship1[i, variety2 := wgs_samples[run == ind2, type]][]
-}
-kinship1
-
-# Assign variety in 2nd kinship matrix 
-for(i in 1:nrow(kinship2)){
-  ind1 <- kinship2[i, INDV1]
-  ind2 <- kinship2[i, INDV2]
+  if(ind1 %in% gbs_samples[, Accession]){
+    kinship[i, source1 := 'GBS_SRA']
+    kinship[i, variety1 := gbs_samples[Accession == ind1, Cultivar]]
+  }
+  if(ind2 %in% gbs_samples[, Accession]){
+    kinship[i, source2 := 'GBS']
+    kinship[i, variety2 := gbs_samples[Accession == ind2, Cultivar]]
+  }
   
-  kinship2[i, variety1 := wgs_samples[run == ind1, type]]
-  kinship2[i, variety2 := gbs_samples[Accession == ind2, Cultivar]]
+  if(ind1 %in% wgs_samples[, ID]){
+    kinship[i, source1 := 'WGS']
+    kinship[i, variety1 := wgs_samples[ID == ind1, variety]]
+  }
+  if(ind2 %in% wgs_samples[, ID]){
+    kinship[i, source2 := 'WGS']
+    kinship[i, variety2 := wgs_samples[ID == ind2, variety]]
+  }
+  
 }
+kinship
+
+# ---- assign identity status ----
+
+# set variable to indicate whether two individuals are same sample in the vcf
+kinship[variety1 != variety2, identity := 0]
+kinship[variety1 == variety2 & INDV1 != INDV2, identity := 1]
+kinship[INDV1==INDV2, identity := 2]
 
 
-# assign variable to indicate whether labelled as same variety
-kinship1[variety1 != variety2, sm := 0]
-kinship1[variety1 == variety2, sm := 1]
 
-kinship2[variety1 != variety2, sm := 0]
-kinship2[variety1 == variety2, sm := 1]
+# ---- plots -----
+ggplot(kinship, aes(x = as.factor(identity), y = RELATEDNESS_PHI)) + geom_boxplot()
+ggplot(kinship, aes(x = as.factor(identity), y = RELATEDNESS_AJK)) + geom_point()
+
+
+newdata <- kinship[(grepl('CILL', INDV1) & !grepl("CILL", INDV2)) | (!grepl("CILL", INDV1) & grepl("CILL", INDV2)) | identity == 2]
+ggplot(newdata, aes(x = as.factor(identity), y = RELATEDNESS_PHI)) + geom_point()
+ggplot(newdata, aes(x = as.factor(identity), y = RELATEDNESS_AJK)) + geom_point()
+
+
+newdata[identity == 1 & RELATEDNESS_AJK < 0.4]
+newdata[identity == 1 & RELATEDNESS_AJK > 0.4]
+
+newdata[identity == 0 & RELATEDNESS_PHI > 0.4]
+newdata[identity == 0 & RELATEDNESS_AJK > 0.75]
+newdata[identity == 0 & RELATEDNESS_AJK > 0.5]
+
+
+# ----- subset to analysis set -----
+kinship_sub <- kinship[INDV1 %in% analysis_set[, ID] & INDV2 %in% analysis_set[, ID]]
+ggplot(kinship_sub, aes(x = as.factor(identity), y = RELATEDNESS_AJK)) + geom_point()
+ggplot(kinship_sub, aes(x = as.factor(identity), y = RELATEDNESS_PHI)) + geom_jitter() 
+
+
+kinship_sub[identity == 0 & RELATEDNESS_AJK > 0.6] # will drop Major from new sequencing when doing GWAS
+
+
+kinship_sub[identity == 0 & RELATEDNESS_PHI > 0.2] # will drop Major from new sequencing when doing GWAS
+
+kinship_sub[variety1 == 'Mahan'] # will drop Major from new sequencing when doing GWAS
+
 
 
 # look at relatedness statistics for samples labelled as same variety vs. not
-ggplot(kinship1[variety2 == 'PoSey'], aes(y = RELATEDNESS_AJK, x = as.factor(sm))) + 
+ggplot(kinship1, aes(y = RELATEDNESS_AJK, x = as.factor(sm))) + 
   geom_point(position = position_jitter(width = 0.2))
 
 # kinship1[variety2 == 'PoSey'] The other homozygote appears to just be a clone of Mahan

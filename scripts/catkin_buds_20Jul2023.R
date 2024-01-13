@@ -2,6 +2,7 @@ library(ggplot2)
 library(lme4)
 library(data.table)
 library(visreg)
+library(viridis)
 
 # -----read heterodichogamy phenotypes -----
 p <- fread("~/workspace/heterodichogamy/data/heterodichogamy_phenotypes.txt")
@@ -61,24 +62,34 @@ l[CULT == 'PI 159568', CULT := 'PI_159568']
 
 mns <- merge(mns, l[, .(Variety = CULT, LFDA)])
 mns$LFDA
-mns[, lf := as.numeric(as.Date(mns$LFDA, format= '%m/%d/%Y'))]
+mns[, lf_date := as.Date(mns$LFDA, format= '%m/%d/%Y')]
+mns[, lf := as.numeric(lf_date)]
+
+reference_date <- as.Date("20220301", format = "%Y%m%d")
+mns[, days_after_mar1 := as.numeric(difftime(lf_date, reference_date))]
 
 
-z <- lm(catkin_bud_len ~ lf + protog, mns)
+z <- lm(catkin_bud_len ~ days_after_mar1 + protog, mns)
+anova(z)
+summary(z)
 visreg(z)
 
+reference_date <- as.Date("20220301", format = "%Y%m%d")
+mns[, days_after_mar1 := as.numeric(difftime(lf_date, reference_date))]
+
 mns[, hist(lf, breaks = 20)]
-ggplot(mns, aes(x = protog, y = catkin_bud_len, color = lf)) + 
+ggplot(mns, aes(x = protog, y = catkin_bud_len, color = days_after_mar1)) + 
   geom_jitter(width = 0.1, size = 5) + 
   #scale_color_manual(values = c("black", "gray")) + 
   scale_x_discrete(labels = c("protandrous", "protogynous")) + 
-  scale_color_viridis() +
+  scale_color_viridis() + 
   labs(x = '', 
-       y = 'Catkin bud length (mm) Jul 20', 
-       color = '') + 
+       y = 'Catkin bud length (mm) Jul 20 2023', 
+       color = 'Leafing date\n(days after Mar 1 2022)') + 
   theme_classic() + 
   theme(aspect.ratio = 1,
-    legend.position = 'none',
+    #legend.position = 'none',
+
     axis.text.x = element_text(size = 14), 
     axis.text.y = element_text(size = 14), 
     axis.title.y = element_text(size = 14, margin = margin(r = 10))
@@ -88,3 +99,23 @@ ggplot(mns, aes(x = protog, y = catkin_bud_len, color = lf)) +
 t.test(x = mns[protog==1, catkin_bud_len],
        y = mns[protog==0, catkin_bud_len])
 
+
+
+
+
+ggplot(mns, aes(x = protog, y = catkin_bud_len)) + 
+  geom_jitter(width = 0.1, size = 5) + 
+  #scale_color_manual(values = c("black", "gray")) + 
+  scale_x_discrete(labels = c("protandrous", "protogynous")) + 
+  #scale_color_viridis() + 
+  labs(x = '', 
+       y = 'Catkin bud length (mm) Jul 20 2023', 
+       color = 'Leafing date\n(days after Mar 1 2022)') + 
+  theme_classic() + 
+  theme(aspect.ratio = 1,
+        #legend.position = 'none',
+        
+        axis.text.x = element_text(size = 14), 
+        axis.text.y = element_text(size = 14), 
+        axis.title.y = element_text(size = 14, margin = margin(r = 10))
+  )

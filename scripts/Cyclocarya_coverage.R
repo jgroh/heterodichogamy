@@ -158,8 +158,8 @@ cyclo_2PA_cvg_1kb <- merge(cyclo_2PA_cvg_1kb, samples, by = 'sample')
 
 
 # ----- 2PG2023
-C2PG_st <- 6000000
-C2PG_en <- 7000000
+C2PG_st <- 6500000
+C2PG_en <- 6700000
 
 cyclo_2PG_cvg[, window := cut(position, breaks = seq(C2PG_st, C2PG_en+1000, by = 1000), labels = seq(C2PG_st, C2PG_en, by = 1000), include.lowest =T), by = sample]
 cyclo_2PG_cvg_1kb <- cyclo_2PG_cvg[, .(coverage = mean(coverage)), by = .(sample,window,avg_cvg)]
@@ -253,7 +253,7 @@ ggplot(cyclo_2PA_cvg_1kb[ploidy == 'diploid'],
 
 
 # ----- Cpal 2PG
-ggplot(cyclo_2PG_cvg_1kb[ ploidy == 'tetraploid'],
+ggplot(cyclo_2PG_cvg_1kb[ ploidy == 'diploid'],
        aes(x = window, y = nrm_cvg, group = sample, color = phenotype)) +
   geom_line() +
   #facet_grid(species~reference, scales = 'free_x') + 
