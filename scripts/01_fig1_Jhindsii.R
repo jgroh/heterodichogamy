@@ -5,8 +5,8 @@ library(ggbreak)
 
 # ----- read phenotypes -----
 pheno <- fread("~/workspace/heterodichogamy/data/phenotypes.txt", header = F, col.names = c("ID", "phenotype", "species"))
-pheno[phenotype == 'protogynous', genotype := 'H?']
-pheno[phenotype == 'protandrous', genotype := 'hh']
+pheno[phenotype == 'protogynous', genotype := 'G?']
+pheno[phenotype == 'protandrous', genotype := 'gg']
 
 # ----- read GWAS ------
 x <- fread("~/workspace/heterodichogamy/hindsii/output/Putah2JcaliP.assoc.txt")
@@ -141,9 +141,8 @@ wg_pvals <- ggplot(x, aes(x = N, y = -log10(p_lrt), color = chr)) +
     #legend.position = c(0.15, 0.85),
     legend.position = 'none'
   )
-wg_pvals
-
-ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jhindsii_gwas.pdf', plot = wg_pvals, width = 7, height = 1.8, units = 'in')
+#wg_pvals
+#ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jhindsii_gwas.pdf', plot = wg_pvals, width = 7, height = 1.8, units = 'in')
 
 
 # H-locus, Jcali H assembly
@@ -176,8 +175,8 @@ pval_plt <- ggplot(x[chr == 'JAKSXK010000007.1' & ps > 31345000 & ps < 31400000]
     legend.position = 'none'
   )
 
-pval_plt
-ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jhindsii_pvals.pdf', plot = pval_plt, width = 7, height = 2, units = 'in')
+#pval_plt
+#ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jhindsii_pvals.pdf', plot = pval_plt, width = 7, height = 2, units = 'in')
 
 
 # H-locus, Jcali alt assembly
@@ -207,15 +206,16 @@ ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jhindsii_
 #                arrow = arrow(length = unit(0.2, "cm")), color = 'maroon') 
 
 
-cvg_win[genotype == 'hh', genotype := 'gg']
-cvg_win[genotype == 'H?', genotype := 'G?']
+
 cvg_win[, genotype := factor(genotype, levels = c("gg", 'G?'))]
 
 
 cvg_plt <- ggplot(cvg_win[genotype != '??' & species == 'hindsii' & reference == 'primary' & window > 313400000 & window < 31400000],
        aes(x = window, y = nrm_cvg, group = sample, color = genotype)) +
   geom_line(data = cvg_win[ genotype != '??' & species == 'hindsii' & reference == 'primary' & window > 31340000 & window < 31400000], linewidth = 0.8, alpha = 0.9)  +
-
+  #geom_line(data = cvg_win[ sample == 'JHIN_PC_060' & reference == 'primary' & window > 31340000 & window < 31400000], linewidth = 0.8, alpha = 0.9)  +
+  #geom_line(data = cvg_win[ sample == 'JHIN_PC_102' & reference == 'primary' & window > 31340000 & window < 31400000], linewidth = 0.8, alpha = 0.9)  +
+  
   #scale_color_manual( values = c('gray', 'maroon', 'tan', 'darkblue')) +
   scale_color_manual( values = c('tan', 'maroon')) +
   scale_x_continuous(limits = c(31345000, 31400000), breaks = seq(31.35e6, 31.39e6, length.out = 3), labels = seq(31.35, 31.39, length.out = 3)) +
@@ -237,7 +237,7 @@ cvg_plt <- ggplot(cvg_win[genotype != '??' & species == 'hindsii' & reference ==
   )
 
 cvg_plt
-ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jhindsii_cvg_H.pdf', plot = cvg_plt, width = 7, height = 2.5, units = 'in')
+#ggsave(filename = '~/workspace/heterodichogamy/Manuscript/figures/main/Jhindsii_cvg_H.pdf', plot = cvg_plt, width = 7, height = 2.5, units = 'in')
 
 
 

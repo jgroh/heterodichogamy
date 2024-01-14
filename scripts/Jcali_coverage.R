@@ -1,6 +1,4 @@
 library(data.table)
-
-library(data.table)
 library(ggplot2)
 library(cowplot)
 
