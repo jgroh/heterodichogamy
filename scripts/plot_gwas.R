@@ -88,6 +88,13 @@ coverage[, window := as.numeric(as.character((window)))]
 coverage_bins <- coverage[, .(coverage = mean(coverage)), by = .(sample, species, window)]
 coverage_bins <- merge(coverage_bins, pheno)
 
+
+coverage[, window10 := cut(pos, breaks = seq(31.8e6, 32e6, by = 10), labels = seq(31.8e6, 32e6-10, by = 10), include.lowest =T), by = sample]
+coverage[, window10 := as.numeric(as.character((window10)))]
+coverage_bins10 <- coverage[, .(coverage = mean(coverage)), by = .(sample, species, window10)]
+coverage_bins10 <- merge(coverage_bins10, pheno)
+
+
 #30710000-30817000
 winsize <- 1e3
 reg2BNU_cvg[, window := cut(position, breaks = seq(30710000, 30817000, by = winsize), labels = seq(30710000, 30817000-winsize, by = winsize), include.lowest =T), by = sample]
@@ -164,6 +171,17 @@ coverage_bins[sample == 'JG0026', genotype := 'GG']
 coverage_bins[, cvg_nrm := coverage/mean(coverage), by = sample]
 
 
+coverage_bins10[phenotype == 'protandrous', genotype := 'gg']
+coverage_bins10[phenotype == 'protogynous' & sample != 'JG0026', genotype := 'Gg']
+coverage_bins10[sample == 'JG0026', genotype := 'GG']
+coverage_bins10[, cvg_nrm := coverage/mean(coverage), by = sample]
+
+coverage1 <- merge(coverage, pheno)[species == 'regia']
+coverage1[phenotype == 'protandrous', genotype := 'gg']
+coverage1[phenotype == 'protogynous' & sample != 'JG0026', genotype := 'Gg']
+coverage1[sample == 'JG0026', genotype := 'GG']
+coverage1[, cvg_nrm := coverage/mean(coverage), by = sample]
+
 plot2 <- ggplot(coverage_bins[species == 'regia' & window >= 31.865e6 & window <= 31.895e6],
        aes(x = window, y = cvg_nrm, group = sample, color = genotype)) +
   geom_line(linewidth = 0.8) +
@@ -216,6 +234,52 @@ plot2_no_leg <- ggplot(coverage_bins[species == 'regia' & window >= 31.865e6 & w
   )
 
 plot2_no_leg
+
+
+
+# ----- coverage to Chandler, finer scale --------
+
+# Chandler TEs
+cnames <- unlist(strsplit("Chr,Source,Type,Start,End,Score,Strand,Phase,Attributes", split = ','))
+hJregTE <- fread("~/workspace/heterodichogamy/Juglans_genome_assemblies/Jregia/Chandler/JregiaV2.fa.mod.EDTA.TEanno.gff3", skip = "NC_", col.names = cnames)
+
+ggplot(coverage1[species == 'regia' & pos >= 31.883e6 & pos <= 31.886e6],
+       #species == 'regia' & pos >= 31.88447e6 & pos <= 31.88449e6], # showing boundary in detail
+                       ) +
+  #geom_point() +
+  geom_line(aes(x = pos, y = cvg_nrm, color = genotype, group = sample), linewidth = 0.8) + 
+  scale_color_manual(values = c("tan", "turquoise4", 'maroon')) +
+  theme_classic() + 
+  #scale_x_continuous(breaks = c(31.87e6, 31.88e6, 31.89e6), labels = c(31.87, 31.88, 31.89)) +
+  
+  labs(x = '', y =  'Normalized read depth', color = '') +
+  theme(aspect.ratio = 0.25,
+        legend.position = c(0.09, 0.9),
+        
+        plot.title = element_text(vjust = -10, hjust = 0.1),
+        axis.text.x = element_text(size=12),
+        axis.text.y = element_text(size=12),
+        axis.title.y = element_text(size=14, vjust = 2),
+        axis.title.x = element_text(size = 14, vjust = -2),
+        legend.text = element_text(size = 12)
+  ) + 
+  #geom_rect(data = hJregTE[Chr == 'NC_049911.1' & Start > 31.883e6 & End < 31.885e6 ],
+  #          aes(ymin = -Inf, ymax = Inf, xmin = Start, xmax = End), fill = 'lightgray') + 
+  # UTR
+  annotate("rect", xmin = 31884269, xmax = 31885000, ymin = 4, ymax = 6,
+         alpha = .1,fill = '#94435b') 
+  # starting from last CDS
+  #annotate("rect", xmin = 31884478, xmax = 31884490, ymin = 4, ymax = 6,
+  #         alpha = .1,fill = '#94435b') 
+
+# full TPP coordinates
+#31884269        31887072
+
+
+
+
+
+
 
 # ----- coverage to BNU----- 
 reg2BNU_cvg_win[phenotype == 'protandrous', genotype := 'gg']
