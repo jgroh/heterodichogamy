@@ -204,17 +204,7 @@ ggplot(haps,
   theme(axis.text = element_blank(),
         legend.position = 'none')
 
-ggplot(haps[run %in% c("CILL_LW1_11", "SRR15911533")], 
-       aes(x = SNPrank, y = hapRank)) + 
-  facet_wrap(~hap) +
-  geom_tile(aes(fill = as.factor(allele)), width = 1, height = 1) + 
-  scale_fill_manual(values = c('cornsilk', 'chocolate4')) + 
-  theme_classic() + 
-  labs(x = '', y = '', fill = 'Allele') + 
-  theme(axis.text = element_blank(),
-        legend.position = 'none')
 
-#fwrite(x = haps[pos == pos[1], .(paste0(run, ".", hap.id), hap)], file = "~/workspace/heterodichogamy/pecan/WGS_data/pixy_hapfile.txt", row.names = F, col.names = F, sep = "\t")
 # ====== Dxy =====
 # 35463 total CDS base pairs
 # index of all pairwise comparisons
@@ -408,10 +398,17 @@ MK_tbl <- function(fasta, gff){
   final01[qrySeq == allele1, lineage := 'G']
   final01[qrySeq != allele0 & qrySeq != allele1, lineage := 'ambiguous']
   
+  table(final01$fixed_poly, final01$type)
   
-  polarized_tbl <- final01[fixed_poly == 'fixed' & type == 'N', table(lineage)]
+  final01[, fixed_poly_lineage := fixed_poly]
+  final01[lineage=='G' & fixed_poly == 'fixed', fixed_poly_lineage := 'fixed_G']
+  final01[lineage=='g' & fixed_poly == 'fixed', fixed_poly_lineage := 'fixed_g']
   
-  return(list(fixed_poly_nonsyn_syn = MK_tbl, fixed_in_x_lineage = polarized_tbl))
+  result = table(final01$fixed_poly_lineage, final01$type)
+  
+  return(result)
+ 
+  #return(list(fixed_poly_nonsyn_syn = MK_tbl, nonsyn_fixed_in_x_lineage = polarized_tbl_N, syn_fixed_in_x_lineage = polarized_tbl_S))
 }
 
 
@@ -424,7 +421,7 @@ z01 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
 z01
 
 tot <- tot - 1
-fisher.test(z01[[1]])
+#fisher.test(z01[[1]])
 
 
 
@@ -434,7 +431,7 @@ z02 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/02_LOC122306891_uncharacterized/02.gff')
 z02
 cnt <- cnt + 1
-fisher.test(z02[[1]])
+#fisher.test(z02[[1]])
 
 
 
@@ -442,7 +439,7 @@ fisher.test(z02[[1]])
 z03 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/03_EMS1-like/03.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/03_EMS1-like/03.gff')
 z03
-fisher.test(z03[[1]])
+#fisher.test(z03[[1]])
 
 
 
@@ -451,7 +448,7 @@ fisher.test(z03[[1]])
 z04 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/04_CEN-like-protein1/04.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/04_CEN-like-protein1/04.gff')
 z04
-fisher.test(z04[[1]])
+#fisher.test(z04[[1]])
 
 
 
@@ -460,7 +457,7 @@ z05 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/05_XBAT33-like/05.gff')
 z05
 cnt <- cnt + 1
-fisher.test(z05[[1]])
+#fisher.test(z05[[1]])
 
 
 
@@ -469,7 +466,8 @@ z06 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/06_ROOT-PRIMORDIUM-DEFECTIVE-1/06.gff')
 z06
 cnt <- cnt + 1
-fisher.test(z06[[1]])
+fisher.test(z06[2:3,])
+
 
 
 
@@ -477,7 +475,7 @@ fisher.test(z06[[1]])
 z07 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/07_RHOMBOID-like-protein2/07.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/07_RHOMBOID-like-protein2/07.gff')
 z07
-fisher.test(z07[[1]])
+#fisher.test(z07[[1]])
 
 
 
@@ -485,7 +483,7 @@ fisher.test(z07[[1]])
 z08 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/08_LOC122306943/08.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/08_LOC122306943/08.gff')
 z08
-fisher.test(z08[[1]])
+#fisher.test(z08[[1]])
 
 
 
@@ -494,7 +492,7 @@ z09 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/09_non-specific-lipid-transfer-protein14/09.gff')
 z09
 cnt <- cnt + 1
-fisher.test(z09[[1]])
+#fisher.test(z09[[1]])
 
 
 
@@ -503,7 +501,10 @@ z10 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/10_IQ-DOMAIN-23-like/10.gff')
 z10
 cnt <- cnt + 1
-fisher.test(z10[[1]])
+chisq.test(z10[2:3,])
+
+chisq.test(z10[c(2,4),])
+fisher.test(z10[c(2,4),])
 
 
 
@@ -512,7 +513,7 @@ z11 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/11_stamen-specific-protein-FIL1-like/11.gff')
 z11
 cnt <- cnt + 1
-fisher.test(z11[[1]])
+#fisher.test(z11[[1]])
 
 
 
@@ -520,8 +521,11 @@ fisher.test(z11[[1]])
 z12 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/12_PMT16/12.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/12_PMT16/12.gff')
 z12
+
 cnt <- cnt + 1
-fisher.test(z12[[1]])
+
+chisq.test(z12[2:3,])
+fisher.test(z12[2:3,])
 
 
 
@@ -529,7 +533,7 @@ fisher.test(z12[[1]])
 z13 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/13_DNA-directed-RNA-polymerase-II-IV-V-subunit-6A-like/13.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/13_DNA-directed-RNA-polymerase-II-IV-V-subunit-6A-like/13.gff')
 z13
-fisher.test(z13[[1]])
+#fisher.test(z13[[1]])
 
 
 
@@ -538,7 +542,7 @@ z14 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/14_F-box-protein-PP2-A12-like/14.gff')
 z14
 cnt <- cnt + 1
-fisher.test(z14[[1]])
+#fisher.test(z14[[1]])
 
 
 
@@ -547,7 +551,7 @@ z15 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/15_F-box-protein-At4g00755-like/15.gff')
 z15
 #cnt <- cnt + 1
-fisher.test(z15[[1]])
+#fisher.test(z15[[1]])
 
 
 
@@ -555,7 +559,7 @@ fisher.test(z15[[1]])
 z16 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/16_SLK2/16.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/16_SLK2/16.gff')
 z16
-fisher.test(z16[[1]])
+#fisher.test(z16[[1]])
 
 
 
@@ -564,7 +568,7 @@ z17 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/17_protein-COFACTOR-ASSEMBLY-OF-COMPLEX-C-SUBUNIT-B-CCB2-chloroplastic-like/17.gff')
 z17
 cnt <- cnt + 1
-fisher.test(z17[[1]])
+#fisher.test(z17[[1]])
 
 
 
@@ -572,7 +576,7 @@ fisher.test(z17[[1]])
 z18 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/18_dihydrodipicolinate-reductase-like-protein-CRR1-chloroplastic/18.fasta', 
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/18_dihydrodipicolinate-reductase-like-protein-CRR1-chloroplastic/18.gff')
 z18
-fisher.test(z18[[1]])
+#fisher.test(z18[[1]])
 
 
 
@@ -581,7 +585,7 @@ z19 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/19_BAG-family-molecular-chaperone-regulator-1-like/19.gff')
 z19
 cnt <- cnt + 1
-fisher.test(z19[[1]])
+#fisher.test(z19[[1]])
 
 
 
@@ -589,7 +593,8 @@ fisher.test(z19[[1]])
 z20 <- MK_tbl(fasta = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/20_protein-DETOXIFICATION-49-like/20.fasta',
               gff = '~/workspace/heterodichogamy/HC_locus_structure/Lakota_v1_genes/20_protein-DETOXIFICATION-49-like/20.gff')
 z20
-fisher.test(z20[[1]])
+fisher.test(z20)
+chisq.test(z20)
 
 
 cnt
